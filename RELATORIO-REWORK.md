@@ -11,6 +11,11 @@ Capturas da interface em `src-tree/docs/bope/capturas/` (dados sintéticos; veja
 | `bope-scanner-0.10.0-rework-src.zip` | Código-fonte completo deste commit |
 | `src-tree/` | O mesmo código, versionado |
 
+SHA-256: `bope-scanner-0.10.0-rework-windows-x64.zip` 274b5be27cc4dc1b804a40065f6cf1016f9081f9800768a8e2c58b1236203f33 ·
+`bope-scanner-0.10.0-rework-src.zip` c8c1e7f470907b9849a349b8b4e767e1d69544fe29909b214681322ca98494ef ·
+`bope-scanner.exe` f9fa923c06d68adfc8247eabeb8e1c230b03b9bc633194c4a81703e5531f12b4 ·
+`bope-scanner-cli.exe` d08e2e80484b576f59b017fd9df46a210064e76e865a7aca3ee78bb6e83db5d4.
+
 ## Análise inicial (antes de mudar)
 
 - **Interface**: tela única de resultado (`Report.tsx`, ~450 linhas) com avaliação, contagens, linhas de
