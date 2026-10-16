@@ -57,8 +57,8 @@ struct ScanArgs {
     /// Save the report to this folder as JSON, HTML and text, each with a `.sha256` file beside it.
     #[arg(long, value_name = "FOLDER")]
     export_dir: Option<std::path::PathBuf>,
-    /// Which formats `--export-dir` writes, comma-separated: json, html, txt.
-    #[arg(long, value_delimiter = ',', default_value = "json,html,txt")]
+    /// Which formats `--export-dir` writes, comma-separated: json, html, txt, pdf.
+    #[arg(long, value_delimiter = ',', default_value = "json,html,txt,pdf")]
     export_format: Vec<String>,
     /// Skip the SS-mode consent question (the player has already agreed).
     #[arg(long)]
@@ -217,7 +217,7 @@ fn export_reports(
     let stem = export::file_stem(&view.header.generated_at, view.mode);
     for name in &args.export_format {
         let format = Format::parse(name)
-            .with_context(|| format!("unknown export format `{name}` (json, html, txt)"))?;
+            .with_context(|| format!("unknown export format `{name}` (json, html, txt, pdf)"))?;
         let exported = export::export(view, bundle, args.lang.code(), format);
         let file_name = format!("{stem}.{}", exported.extension);
         let path = dir.join(&file_name);

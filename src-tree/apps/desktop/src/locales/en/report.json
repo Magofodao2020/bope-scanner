@@ -517,6 +517,7 @@
       "process_interaction": "module in the Roblox player",
       "inventory": "inventory (not proof of execution)",
       "reference": "historical reference",
+      "resource_usage": "CPU use recorded by SRUM",
       "file_history": "file-system history",
       "deleted": "deletion recorded",
       "current_file": "file present",

@@ -199,9 +199,9 @@ pub fn default_category(collector: &str) -> &'static str {
         "roblox" | "roblox_process" | "executor_footprint" => "roblox",
         "process" => "processes_memory",
         "prefetch" | "bam" | "pca" | "userassist" | "shimcache" | "feature_usage" | "muicache"
-        | "shell_mru" | "amcache" | "shortcuts" => "execution",
-        "user_files" | "usn" | "fivem_dir" | "fivem_servers" | "roblox_files" => "files",
-        "autostart" | "hijack" | "defender_exclusion" => "persistence",
+        | "shell_mru" | "amcache" | "shortcuts" | "srum" | "shellbags" => "execution",
+        "user_files" | "usn" | "fivem_dir" | "fivem_servers" | "roblox_files" | "mft" => "files",
+        "autostart" | "hijack" | "defender_exclusion" | "wmi_subscription" => "persistence",
         "driver_service" => "drivers",
         "usb_device" | "pci_device" => "usb_devices",
         "browser_ext" | "powershell_text" => "browser_scripts",

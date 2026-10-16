@@ -247,6 +247,7 @@ pub fn source_state_label(state: &str) -> &'static str {
 pub fn evidence_class_label(class: &str) -> &'static str {
     match class {
         "execution" => "execução registrada",
+        "resource_usage" => "uso de CPU registrado pelo SRUM",
         "running" => "em execução",
         "process_interaction" => "módulo no player do Roblox",
         "inventory" => "inventário (não prova execução)",

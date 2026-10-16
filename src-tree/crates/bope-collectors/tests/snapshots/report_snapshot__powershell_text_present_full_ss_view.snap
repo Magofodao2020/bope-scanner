@@ -15,7 +15,7 @@ expression: "view::for_mode(&report, Mode::Ss)"
     "rules_bundle": {
       "schema_version": 4,
       "sha256": "[bundle sha256]",
-      "rule_count": 143
+      "rule_count": 152
     },
     "platform": "windows",
     "os_build": "26100",
@@ -186,6 +186,14 @@ expression: "view::for_mode(&report, Mode::Ss)"
       "strength": "posture",
       "state": "unmeasured",
       "reason": "source_absent",
+      "expected": false
+    },
+    {
+      "rule_id": "d615135a-756a-4da8-ae18-ef2737a3e921",
+      "collector": "mft",
+      "strength": "presence",
+      "state": "unmeasured",
+      "reason": "read_failed",
       "expected": false
     },
     {
@@ -583,13 +591,13 @@ expression: "view::for_mode(&report, Mode::Ss)"
   "listed": {
     "found": 3,
     "not_found": 10,
-    "unmeasured": 43
+    "unmeasured": 44
   },
   "hidden": {
-    "not_found": 44,
-    "unmeasured_expected": 19,
+    "not_found": 47,
+    "unmeasured_expected": 22,
     "unmeasured_unexpected": 0,
-    "unmatched": 53
+    "unmatched": 57
   },
   "timeline": {
     "entries": [
@@ -699,6 +707,10 @@ expression: "view::for_mode(&report, Mode::Ss)"
         "reason": "read_failed"
       },
       {
+        "collector": "mft",
+        "reason": "read_failed"
+      },
+      {
         "collector": "pca",
         "reason": "read_failed"
       },
@@ -721,6 +733,10 @@ expression: "view::for_mode(&report, Mode::Ss)"
       },
       {
         "collector": "shimcache",
+        "reason": "source_absent"
+      },
+      {
+        "collector": "srum",
         "reason": "source_absent"
       },
       {
@@ -755,6 +771,9 @@ expression: "view::for_mode(&report, Mode::Ss)"
     "fastflags",
     "shortcuts",
     "amcache",
+    "srum",
+    "mft",
+    "shellbags",
     "user_files",
     "posture",
     "machine_identity",
@@ -762,6 +781,7 @@ expression: "view::for_mode(&report, Mode::Ss)"
     "windows_start",
     "pci_device",
     "autostart",
+    "wmi_subscription",
     "hijack",
     "defender_exclusion",
     "installed_programs",
@@ -1025,6 +1045,16 @@ expression: "view::for_mode(&report, Mode::Ss)"
       {
         "collector": "roblox_trace",
         "fields": {
+          "family": "srum",
+          "reason": "source_absent",
+          "scope": "source",
+          "source": "srum",
+          "state": "not_measured"
+        }
+      },
+      {
+        "collector": "roblox_trace",
+        "fields": {
           "family": "shortcuts",
           "scope": "source",
           "source": "shortcuts",
@@ -1043,10 +1073,29 @@ expression: "view::for_mode(&report, Mode::Ss)"
       {
         "collector": "roblox_trace",
         "fields": {
+          "family": "shellbags",
+          "scope": "source",
+          "source": "shellbags",
+          "state": "measured"
+        }
+      },
+      {
+        "collector": "roblox_trace",
+        "fields": {
           "family": "usn",
           "reason": "read_failed",
           "scope": "source",
           "source": "usn",
+          "state": "error"
+        }
+      },
+      {
+        "collector": "roblox_trace",
+        "fields": {
+          "family": "mft",
+          "reason": "read_failed",
+          "scope": "source",
+          "source": "mft",
           "state": "error"
         }
       },
@@ -1094,6 +1143,16 @@ expression: "view::for_mode(&report, Mode::Ss)"
           "scope": "source",
           "source": "autostart",
           "state": "measured"
+        }
+      },
+      {
+        "collector": "roblox_trace",
+        "fields": {
+          "family": "wmi",
+          "reason": "source_absent",
+          "scope": "source",
+          "source": "wmi_subscription",
+          "state": "not_measured"
         }
       },
       {

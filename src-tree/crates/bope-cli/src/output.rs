@@ -364,6 +364,8 @@ pub fn consent(lang: Lang) -> String {
             \x20 - names that match a catalog of Roblox tools (Bloxstrap, FFlagManager, FPS unlockers, executors, injectors and their spelling variants), and only those names: files and folders in AppData, Temp, ProgramData, Program Files, Downloads, Desktop and Documents, the names inside .zip archives there (nothing is extracted), and items in this account's $Recycle.Bin with where they were and when they were deleted; matching programs get SHA-256 and signature\n\
             \x20 - shortcuts (.lnk) on the Desktop, in the Start menu, the taskbar and Recent that point at a Roblox tool or at a program in your own folders: the target path, whether it is still there, and the target's times saved in the shortcut, never its arguments\n\
             \x20 - Amcache.hve, the inventory of programs Windows keeps, read from an existing shadow copy (none is created): entries for Roblox tools and for programs in your own folders\n\
+            \x20 - the SRUM database (SRUDB.dat), read from the same kind of existing shadow copy: for programs named like Roblox tools or in your own folders, how much CPU time and network traffic Windows recorded per hour, never a user name or a network name\n\
+            \x20 - permanent WMI event subscriptions (filters, consumers and bindings): their names and queries, the program a consumer starts and its SHA-256 and signature, never a script's text or a command's arguments\n\
             \x20 - Roblox FastFlag files (ClientAppSettings.json in the Roblox and bootstrapper folders, and settings files of FastFlag tools): size, times, SHA-256, how many flags of each kind, and the names of network/physics flags, never the values\n\
             \x20 - in the change journal, the names of files that match the Roblox tool catalog, with how many times they were created, deleted or renamed\n\
             \x20 - what Explorer records about programs this Windows account started: UserAssist (how many times and when last), MuiCache (the program's own product and company name), FeatureUsage (taskbar counters) and the AppCompatCache, with the path of each program\n\
@@ -401,6 +403,8 @@ pub fn consent(lang: Lang) -> String {
             \x20 - ชื่อที่ตรงกับรายการเครื่องมือของ Roblox (Bloxstrap, FFlagManager, FPS unlocker, executor, injector และชื่อสะกดแบบอื่น) เฉพาะชื่อที่ตรงเท่านั้น: ไฟล์และโฟลเดอร์ใน AppData, Temp, ProgramData, Program Files, Downloads, Desktop และ Documents ชื่อภายในไฟล์ .zip (ไม่แตกไฟล์) และรายการใน $Recycle.Bin ของบัญชีนี้ พร้อมตำแหน่งเดิมและเวลาที่ลบ โปรแกรมที่ตรงจะมี SHA-256 และลายเซ็น\n\
             \x20 - shortcut (.lnk) บน Desktop, Start menu, taskbar และ Recent ที่ชี้ไปยังเครื่องมือของ Roblox หรือโปรแกรมในโฟลเดอร์ของคุณ: ที่อยู่เป้าหมาย ยังอยู่หรือไม่ และเวลาที่บันทึกใน shortcut โดยไม่อ่าน arguments\n\
             \x20 - Amcache.hve รายการโปรแกรมที่ Windows เก็บ อ่านจาก shadow copy ที่มีอยู่แล้ว (ไม่สร้างใหม่): เฉพาะเครื่องมือของ Roblox และโปรแกรมในโฟลเดอร์ของคุณ\n\
+            \x20 - ฐานข้อมูล SRUM (SRUDB.dat) อ่านจาก shadow copy ที่มีอยู่แล้วเช่นกัน: เวลา CPU และปริมาณเครือข่ายรายชั่วโมงของโปรแกรมที่มีชื่อเหมือนเครื่องมือ Roblox หรืออยู่ในโฟลเดอร์ของคุณ\n\
+            \x20 - การสมัครรับเหตุการณ์ WMI แบบถาวร: ชื่อ query และโปรแกรมที่ consumer เรียก พร้อม SHA-256 และลายเซ็น ไม่เก็บเนื้อหา script หรือ argument\n\
             \x20 - ไฟล์ FastFlag ของ Roblox (ClientAppSettings.json ในโฟลเดอร์ Roblox และ bootstrapper และไฟล์ตั้งค่าของเครื่องมือ FastFlag): ขนาด เวลา SHA-256 จำนวน flag แต่ละชนิด และชื่อ flag ด้านเครือข่าย/ฟิสิกส์ โดยไม่อ่านค่า\n\
             \x20 - ชื่อไฟล์ใน change journal ที่ตรงกับรายการเครื่องมือของ Roblox พร้อมจำนวนครั้งที่ถูกสร้าง ลบ หรือเปลี่ยนชื่อ\n\
             \x20 - สิ่งที่ Explorer บันทึกเกี่ยวกับโปรแกรมที่บัญชี Windows นี้เปิด: UserAssist (กี่ครั้งและครั้งล่าสุดเมื่อไร), MuiCache (ชื่อผลิตภัณฑ์และบริษัทของโปรแกรม), FeatureUsage (ตัวนับของ taskbar) และ AppCompatCache พร้อม path ของแต่ละโปรแกรม\n\
@@ -418,7 +422,7 @@ pub fn consent(lang: Lang) -> String {
 }
 
 /// What a full scan reads beyond the standard one, in the words `PRIVACY.md` uses (ADR 0052, ADR 0055).
-fn full_reads(lang: Lang) -> [&'static str; 5] {
+fn full_reads(lang: Lang) -> [&'static str; 7] {
     match lang {
         Lang::Pt => crate::pt::FULL_READS,
         Lang::En => [
@@ -444,6 +448,12 @@ fn full_reads(lang: Lang) -> [&'static str; 5] {
              folders typed in the address bar (TypedPaths), recently opened programs, scripts and \
              archives (RecentDocs, only those file types) and the programs that last used an Open or \
              Save dialog",
+            "the NTFS Master File Table of the Windows drive, read raw and read-only: every file record's \
+             name passes through memory once and only names matching the Roblox tool catalog are kept, \
+             with their folder, NTFS times and whether the record is still in use or was freed by a \
+             deletion — never a file's content",
+            "folders Explorer remembers (ShellBags) and the files the Open/Save dialog remembers \
+             (OpenSavePidlMRU): only paths with a name matching the Roblox tool catalog or naming Roblox",
         ],
         Lang::Th => [
             "ชื่อโฟลเดอร์ cache ของแต่ละเซิร์ฟเวอร์ที่ FiveM for GTA V Enhanced เก็บไว้ \
@@ -464,6 +474,10 @@ fn full_reads(lang: Lang) -> [&'static str; 5] {
             "รายการของ Explorer: โปรแกรมที่เปิดจากกล่อง Run (RunMRU ไม่อ่าน argument) โฟลเดอร์ที่พิมพ์ในแถบที่อยู่ \
              (TypedPaths) โปรแกรม script และไฟล์บีบอัดที่เปิดล่าสุด (RecentDocs เฉพาะชนิดไฟล์เหล่านั้น) \
              และโปรแกรมที่ใช้หน้าต่าง Open หรือ Save ล่าสุด",
+            "Master File Table ของ NTFS บนไดรฟ์ Windows อ่านแบบ raw และอ่านอย่างเดียว: เก็บเฉพาะชื่อที่ตรงกับรายการเครื่องมือ Roblox \
+             พร้อมโฟลเดอร์ เวลาของ NTFS และ record ยังใช้งานอยู่หรือถูกปล่อยจากการลบ ไม่อ่านเนื้อหาไฟล์",
+            "โฟลเดอร์ที่ Explorer จำไว้ (ShellBags) และไฟล์ที่หน้าต่าง Open/Save จำไว้ (OpenSavePidlMRU) \
+             เฉพาะ path ที่มีชื่อตรงกับรายการเครื่องมือ Roblox หรือมีคำว่า Roblox",
         ],
     }
 }
@@ -1284,6 +1298,7 @@ mod tests {
         ("install_marker", &["Atlas", "ReviOS", "Defender"]),
         ("installed_programs", &["Cheat Engine", "VPN"]),
         ("machine_identity", &["SMBIOS"]),
+        ("mft", &["Master File Table"]),
         ("muicache", &["MuiCache"]),
         ("net_adapter", &["WinHTTP", "TAP"]),
         (
@@ -1316,13 +1331,16 @@ mod tests {
         ("roblox_process", &["RobloxPlayerBeta.exe", "Hyperion"]),
         ("roblox_trace", &["FFlagManager"]),
         ("shell_mru", &["RunMRU", "TypedPaths"]),
+        ("shellbags", &["ShellBags", "OpenSavePidlMRU"]),
         ("shimcache", &["AppCompatCache"]),
         ("shortcuts", &[".lnk"]),
+        ("srum", &["SRUM", "SRUDB.dat"]),
         ("usb_device", &["USB", "setupapi.dev.log", "Arduino"]),
         ("user_files", &["Mark of the Web", ".lua"]),
         ("userassist", &["UserAssist", "Solara"]),
         ("usn", &["change journal"]),
         ("windows_start", &["System", "Fast Startup"]),
+        ("wmi_subscription", &["WMI"]),
     ];
 
     #[test]

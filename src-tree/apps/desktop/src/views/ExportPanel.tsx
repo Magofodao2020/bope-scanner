@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Part of B.O.P.E Scanner, a modified version of aeterna-rongroi. Using it to evade detection is out of scope — see AGENTS.md.
 
-// Saving the report to a folder the person chooses, as JSON, HTML and text, each with its SHA-256
-// (B.O.P.E, ADR 0116). Nothing is sent anywhere.
+// Saving the report to a folder the person chooses, as JSON, HTML, text and PDF, each with its SHA-256
+// (B.O.P.E, ADR 0116; PDF: ADR 0129). Nothing is sent anywhere.
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,7 +15,7 @@ interface Props {
   options?: SsOptions;
 }
 
-const FORMATS = ["html", "json", "txt"] as const;
+const FORMATS = ["html", "json", "txt", "pdf"] as const;
 
 export function ExportPanel({ mode, options }: Props) {
   const { t, i18n } = useTranslation("report");

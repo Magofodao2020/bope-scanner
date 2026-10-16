@@ -15,7 +15,7 @@ expression: view
     "rules_bundle": {
       "schema_version": 4,
       "sha256": "[bundle sha256]",
-      "rule_count": 143
+      "rule_count": 152
     },
     "platform": "windows",
     "os_build": "26100",
@@ -430,6 +430,14 @@ expression: view
       "expected": false
     },
     {
+      "rule_id": "d615135a-756a-4da8-ae18-ef2737a3e921",
+      "collector": "mft",
+      "strength": "presence",
+      "state": "unmeasured",
+      "reason": "not_consented",
+      "expected": true
+    },
+    {
       "rule_id": "a10c08a6-2f00-40e2-838b-a874db8f7722",
       "collector": "muicache",
       "strength": "context",
@@ -754,6 +762,14 @@ expression: view
       "expected": false
     },
     {
+      "rule_id": "40126502-5a4c-421d-9603-522ea7152433",
+      "collector": "roblox_files",
+      "strength": "context",
+      "state": "unmeasured",
+      "reason": "read_failed",
+      "expected": false
+    },
+    {
       "rule_id": "b77bd209-8711-4277-82a9-ae7c6b349a62",
       "collector": "roblox_files",
       "strength": "presence",
@@ -859,6 +875,22 @@ expression: view
       "retention": "Whatever the sources read in this scan still hold; the sources table says which could not be read."
     },
     {
+      "rule_id": "600956be-c11f-43de-9070-02ceea97461c",
+      "collector": "shellbags",
+      "strength": "presence",
+      "state": "unmeasured",
+      "reason": "not_consented",
+      "expected": true
+    },
+    {
+      "rule_id": "1a7a3594-5b68-4142-8426-96aa0e0a2e90",
+      "collector": "shellbags",
+      "strength": "presence",
+      "state": "unmeasured",
+      "reason": "not_consented",
+      "expected": true
+    },
+    {
       "rule_id": "71839ff2-255a-4df3-8014-de800fd4ffa1",
       "collector": "shimcache",
       "strength": "context",
@@ -873,6 +905,14 @@ expression: view
       "state": "unmeasured",
       "reason": "read_failed",
       "expected": false
+    },
+    {
+      "rule_id": "e3f5c638-81e3-410a-9f1d-fe762b9f8731",
+      "collector": "srum",
+      "strength": "execution",
+      "state": "unmeasured",
+      "reason": "source_absent",
+      "expected": true
     },
     {
       "rule_id": "3daec665-7482-4667-a268-3be496783a83",
@@ -985,6 +1025,22 @@ expression: view
       "state": "unmeasured",
       "reason": "read_failed",
       "expected": false
+    },
+    {
+      "rule_id": "7a7cebaa-f0ae-4e82-9234-4b53f853eacb",
+      "collector": "wmi_subscription",
+      "strength": "presence",
+      "state": "unmeasured",
+      "reason": "source_absent",
+      "expected": true
+    },
+    {
+      "rule_id": "2a0c35e1-7d5e-425e-a0f7-99424e7973ec",
+      "collector": "wmi_subscription",
+      "strength": "presence",
+      "state": "unmeasured",
+      "reason": "source_absent",
+      "expected": true
     }
   ],
   "own_traces": [],
@@ -1223,6 +1279,16 @@ expression: view
         {
           "collector": "roblox_trace",
           "fields": {
+            "family": "srum",
+            "reason": "source_absent",
+            "scope": "source",
+            "source": "srum",
+            "state": "not_measured"
+          }
+        },
+        {
+          "collector": "roblox_trace",
+          "fields": {
             "family": "shortcuts",
             "reason": "read_failed",
             "scope": "source",
@@ -1243,11 +1309,31 @@ expression: view
         {
           "collector": "roblox_trace",
           "fields": {
+            "family": "shellbags",
+            "reason": "not_consented",
+            "scope": "source",
+            "source": "shellbags",
+            "state": "not_applicable"
+          }
+        },
+        {
+          "collector": "roblox_trace",
+          "fields": {
             "family": "usn",
             "reason": "read_failed",
             "scope": "source",
             "source": "usn",
             "state": "error"
+          }
+        },
+        {
+          "collector": "roblox_trace",
+          "fields": {
+            "family": "mft",
+            "reason": "not_consented",
+            "scope": "source",
+            "source": "mft",
+            "state": "not_applicable"
           }
         },
         {
@@ -1301,6 +1387,16 @@ expression: view
         {
           "collector": "roblox_trace",
           "fields": {
+            "family": "wmi",
+            "reason": "source_absent",
+            "scope": "source",
+            "source": "wmi_subscription",
+            "state": "not_measured"
+          }
+        },
+        {
+          "collector": "roblox_trace",
+          "fields": {
             "family": "process_snapshot",
             "reason": "read_failed",
             "scope": "source",
@@ -1333,12 +1429,12 @@ expression: view
   "scope": {
     "not_admin": 0,
     "not_attempted": 0,
-    "not_consented": 14
+    "not_consented": 17
   },
   "listed": {
     "found": 0,
     "not_found": 36,
-    "unmeasured": 83
+    "unmeasured": 90
   },
   "hidden": {
     "not_found": 0,
@@ -1416,6 +1512,10 @@ expression: view
         "reason": "source_absent"
       },
       {
+        "collector": "srum",
+        "reason": "source_absent"
+      },
+      {
         "collector": "usb_device",
         "place": "device_list",
         "reason": "read_failed"
@@ -1443,6 +1543,9 @@ expression: view
     "fastflags",
     "shortcuts",
     "amcache",
+    "srum",
+    "mft",
+    "shellbags",
     "user_files",
     "posture",
     "machine_identity",
@@ -1450,6 +1553,7 @@ expression: view
     "windows_start",
     "pci_device",
     "autostart",
+    "wmi_subscription",
     "hijack",
     "defender_exclusion",
     "installed_programs",
@@ -1685,6 +1789,16 @@ expression: view
       {
         "collector": "roblox_trace",
         "fields": {
+          "family": "srum",
+          "reason": "source_absent",
+          "scope": "source",
+          "source": "srum",
+          "state": "not_measured"
+        }
+      },
+      {
+        "collector": "roblox_trace",
+        "fields": {
           "family": "shortcuts",
           "reason": "read_failed",
           "scope": "source",
@@ -1705,11 +1819,31 @@ expression: view
       {
         "collector": "roblox_trace",
         "fields": {
+          "family": "shellbags",
+          "reason": "not_consented",
+          "scope": "source",
+          "source": "shellbags",
+          "state": "not_applicable"
+        }
+      },
+      {
+        "collector": "roblox_trace",
+        "fields": {
           "family": "usn",
           "reason": "read_failed",
           "scope": "source",
           "source": "usn",
           "state": "error"
+        }
+      },
+      {
+        "collector": "roblox_trace",
+        "fields": {
+          "family": "mft",
+          "reason": "not_consented",
+          "scope": "source",
+          "source": "mft",
+          "state": "not_applicable"
         }
       },
       {
@@ -1758,6 +1892,16 @@ expression: view
           "scope": "source",
           "source": "autostart",
           "state": "measured"
+        }
+      },
+      {
+        "collector": "roblox_trace",
+        "fields": {
+          "family": "wmi",
+          "reason": "source_absent",
+          "scope": "source",
+          "source": "wmi_subscription",
+          "state": "not_measured"
         }
       },
       {

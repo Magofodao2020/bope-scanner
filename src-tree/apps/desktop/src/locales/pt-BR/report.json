@@ -517,6 +517,7 @@
       "process_interaction": "módulo no player do Roblox",
       "inventory": "inventário (não prova execução)",
       "reference": "referência histórica",
+      "resource_usage": "uso de CPU registrado pelo SRUM",
       "file_history": "histórico do sistema de arquivos",
       "deleted": "exclusão registrada",
       "current_file": "arquivo presente",

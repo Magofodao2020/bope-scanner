@@ -315,6 +315,9 @@ describe("App", () => {
         sources: [
           row({ scope: "source", source: "prefetch", state: "not_measured", reason: "not_admin" }),
           row({ scope: "source", source: "amcache", state: "measured" }),
+          row({ scope: "source", source: "srum", state: "measured" }),
+          row({ scope: "source", source: "mft", state: "not_applicable", reason: "not_consented" }),
+          row({ scope: "source", source: "wmi_subscription", state: "measured" }),
         ],
       },
     };
@@ -330,6 +333,11 @@ describe("App", () => {
     expect(screen.getByText(/not at this path today/)).toBeTruthy();
     expect(screen.getByText("Sources the correlation could use")).toBeTruthy();
     expect(screen.getByText("(not_admin)")).toBeTruthy();
+    // B.O.P.E 0.10.0: the new sources are named, and one a standard scan does not read says so.
+    expect(screen.getAllByText(/SRUM/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Master File Table/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/WMI/).length).toBeGreaterThan(0);
+    expect(screen.getByText("(not_consented)")).toBeTruthy();
   });
 
   // ADR 0051: the SS view shows its timeline, with what it never says above it, and the scan's own
@@ -558,10 +566,12 @@ describe("App", () => {
     // seven `os_image` rules, because this fixture describes no `CurrentVersion` key for them to read
     // (ADR 0056); and three `install_marker` rules, because the fixture sets no environment variable
     // for the folders they name (ADR 0057). The one unmatched observation is `install_marker`'s
-    // registry marker, which needs no environment variable and answered `present: false`.
+    // registry marker, which needs no environment variable and answered `present: false`. B.O.P.E 0.10.0
+    // adds three full-scan rules (`mft`, `shellbags`) and the `srum` and `wmi_subscription` rules this
+    // fixture's limited scan expects not to measure, and the new sources' unmatched rows (ADR 0124–0127).
     expect(
       screen.getByText(
-        "Hidden in SS mode: 26 not found · 28 not measured (expected) · 0 not measured (not expected) · 25 unmatched observations",
+        "Hidden in SS mode: 26 not found · 33 not measured (expected) · 0 not measured (not expected) · 29 unmatched observations",
       ),
     ).toBeTruthy();
     expect(calls).toContain("report_view");
@@ -783,7 +793,7 @@ describe("App", () => {
     expect(await screen.findByText("Not measured (not expected)")).toBeTruthy();
     expect(
       screen.getByText(
-        "Hidden in SS mode: 26 not found · 3 not measured (expected) · 0 not measured (not expected) · 25 unmatched observations",
+        "Hidden in SS mode: 26 not found · 3 not measured (expected) · 0 not measured (not expected) · 29 unmatched observations",
       ),
     ).toBeTruthy();
   });
@@ -929,7 +939,7 @@ describe("App", () => {
     fireEvent.click(await screen.findByText("Save report"));
     expect(await screen.findByText("ab".repeat(32))).toBeTruthy();
     expect(exportedWith?.mode).toBe("ss");
-    expect(exportedWith?.formats).toEqual(["html", "json", "txt"]);
+    expect(exportedWith?.formats).toEqual(["html", "json", "txt", "pdf"]);
     expect(screen.getByText(/does not prove the scan was honest/)).toBeTruthy();
   });
 

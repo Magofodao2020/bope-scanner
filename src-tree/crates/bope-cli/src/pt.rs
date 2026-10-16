@@ -131,6 +131,8 @@ Este programa vai ler, neste PC (somente leitura):\n\
 \x20 - nomes que correspondem a um catálogo de ferramentas do Roblox (Bloxstrap, FFlagManager, FPS unlockers, executores, injetores e variações de grafia), e só esses nomes: arquivos e pastas em AppData, Temp, ProgramData, Program Files, Downloads, Área de Trabalho e Documentos, os nomes dentro de arquivos .zip ali (nada é extraído) e itens da $Recycle.Bin desta conta, com onde estavam e quando foram excluídos; programas que correspondem recebem SHA-256 e assinatura\n\
 \x20 - atalhos (.lnk) na Área de Trabalho, no menu Iniciar, na barra de tarefas e em Recentes que apontam para uma ferramenta do Roblox ou para um programa nas suas pastas: o caminho de destino, se ele ainda existe e os horários do destino gravados no atalho, nunca os argumentos\n\
 \x20 - o Amcache.hve, inventário de programas do Windows, lido de uma shadow copy que já existe (nenhuma é criada): entradas de ferramentas do Roblox e de programas nas suas pastas\n\
+\x20 - o banco do SRUM (SRUDB.dat), lido do mesmo tipo de shadow copy existente: para programas com nome de ferramenta do Roblox ou nas suas pastas, quanto tempo de CPU e tráfego de rede o Windows registrou por hora, nunca nomes de usuário ou de rede\n\
+\x20 - assinaturas de eventos WMI permanentes (filtros, consumidores e vínculos): nomes, consultas, o programa que um consumidor inicia com SHA-256 e assinatura, nunca o texto de um script ou os argumentos de um comando\n\
 \x20 - arquivos de FastFlag do Roblox (ClientAppSettings.json nas pastas do Roblox e dos bootstrappers, e arquivos de configuração de ferramentas de FastFlag): tamanho, horários, SHA-256, quantas flags de cada tipo e os nomes das flags de rede/física, nunca os valores\n\
 \x20 - no change journal, os nomes de arquivos que correspondem ao catálogo de ferramentas do Roblox, com quantas vezes foram criados, excluídos ou renomeados\n\
 \x20 - o que o Explorer registra sobre programas que esta conta iniciou: UserAssist (quantas vezes e quando por último), MuiCache (nome do produto e empresa do próprio programa), FeatureUsage (contadores da barra de tarefas) e o AppCompatCache, com o caminho de cada programa\n\
@@ -147,12 +149,14 @@ Você pode recusar.\n\
 Continuar? [s/N] ";
 
 /// O que a verificação avançada lê além da padrão.
-pub(crate) const FULL_READS: [&str; 5] = [
+pub(crate) const FULL_READS: [&str; 7] = [
     "o nome de cada pasta de cache de servidor que o FiveM for GTA V Enhanced guarda — uma por servidor em que este PC entrou — com quando foi criada e alterada",
     "as palavras dos comandos do PowerShell, guardadas só como tipos — se um comando baixou algo e executou, mandou o Microsoft Defender ignorar algo, limpou um log ou histórico — do histórico do PowerShell e dos scripts que ele marcou como suspeitos. Nenhum comando é guardado ou mostrado; só o nome do site de onde um comando baixou algo, que o modo SS mostra apenas se você concordar separadamente",
     "as extensões de cada perfil do Chrome, Edge, Brave, Opera, Vivaldi e Firefox: id, nome, versão e se podem acessar roblox.com ou todos os sites, rodar scripts do usuário ou controlar o DevTools — nunca histórico, cookies, senhas ou conteúdo de páginas",
     "em Downloads, Área de Trabalho e Documentos, até um nível abaixo: programas, arquivos compactados e scripts pelo nome e horário, com SHA-256, assinatura e a Marca da Web (Mark of the Web) que o Windows anexou no download — o nome do site só aparece no modo SS se você concordar —, quais funções exclusivas de executor cada script .lua chama, nunca o texto, e os nomes de arquivos de macro do AutoHotkey, AutoIt e similares",
     "as listas do Explorer: programas iniciados pela caixa Executar (RunMRU, nunca os argumentos), pastas digitadas na barra de endereço (TypedPaths), programas, scripts e arquivos compactados abertos recentemente (RecentDocs, só esses tipos) e os programas que usaram por último uma janela Abrir ou Salvar",
+    "a Master File Table do NTFS da unidade do Windows, lida em modo bruto e somente leitura: o nome de cada registro passa pela memória uma vez e só ficam os nomes do catálogo de ferramentas do Roblox, com a pasta, os horários do NTFS e se o registro ainda está em uso ou foi liberado por uma exclusão — nunca o conteúdo de um arquivo",
+    "as pastas que o Explorer lembra (ShellBags) e os arquivos que a caixa Abrir/Salvar lembra (OpenSavePidlMRU): só caminhos com um nome do catálogo de ferramentas do Roblox ou que citam o Roblox",
 ];
 
 /// A pergunta da verificação avançada.

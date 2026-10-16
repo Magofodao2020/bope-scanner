@@ -24,7 +24,7 @@ use crate::model::{
 /// The order collectors are shown in, by both front ends: the rows of one collector together, and
 /// entries of the timeline that carry the same time (ADR 0045, ADR 0051). A collector not named here
 /// follows the named ones.
-pub const COLLECTOR_ORDER: [&str; 36] = [
+pub const COLLECTOR_ORDER: [&str; 40] = [
     "roblox_trace",
     "roblox",
     "roblox_process",
@@ -33,6 +33,9 @@ pub const COLLECTOR_ORDER: [&str; 36] = [
     "fastflags",
     "shortcuts",
     "amcache",
+    "srum",
+    "mft",
+    "shellbags",
     "user_files",
     "posture",
     "machine_identity",
@@ -40,6 +43,7 @@ pub const COLLECTOR_ORDER: [&str; 36] = [
     "windows_start",
     "pci_device",
     "autostart",
+    "wmi_subscription",
     "hijack",
     "defender_exclusion",
     "installed_programs",
