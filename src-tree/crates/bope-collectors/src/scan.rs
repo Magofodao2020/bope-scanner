@@ -54,6 +54,9 @@ pub struct Progress {
     pub found_rules: Vec<String>,
     /// Milliseconds the collector took.
     pub elapsed_ms: u128,
+    /// The collector that runs next, which is now running; `None` after the last one, when the
+    /// report is being built.
+    pub next: Option<String>,
 }
 
 /// Why a scan stopped before its report was built.
@@ -127,13 +130,14 @@ pub fn run_with_progress(
         } else {
             run_one(collector.as_ref(), host, tier)
         };
-        let step = progress_of(
+        let mut step = progress_of(
             bundle,
             &run,
             index + 1,
             total,
             started.elapsed().as_millis(),
         );
+        step.next = collectors.get(index + 1).map(|c| c.id().to_owned());
         runs.push(run);
         if !progress(step) {
             return Err(Cancelled);
@@ -208,6 +212,7 @@ fn progress_of(
         gaps,
         found_rules,
         elapsed_ms,
+        next: None,
     }
 }
 

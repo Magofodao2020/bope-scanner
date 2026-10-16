@@ -433,7 +433,7 @@ expression: view
     "not_found": 54,
     "unmeasured_expected": 37,
     "unmeasured_unexpected": 0,
-    "unmatched": 65
+    "unmatched": 71
   },
   "timeline": {
     "entries": [
@@ -638,6 +638,10 @@ expression: view
         "reason": "read_failed"
       },
       {
+        "collector": "recycle_bin",
+        "reason": "read_failed"
+      },
+      {
         "collector": "shimcache",
         "reason": "source_absent"
       },
@@ -692,6 +696,7 @@ expression: view
     "roblox_process",
     "executor_footprint",
     "roblox_files",
+    "recycle_bin",
     "fastflags",
     "shortcuts",
     "amcache",
@@ -703,6 +708,7 @@ expression: view
     "machine_identity",
     "driver_service",
     "windows_start",
+    "windows_service",
     "pci_device",
     "autostart",
     "wmi_subscription",
@@ -1180,5 +1186,57 @@ expression: view
         }
       }
     ]
-  }
+  },
+  "services": [
+    {
+      "collector": "windows_service",
+      "fields": {
+        "query": "failed",
+        "scope": "current",
+        "service": "PcaSvc"
+      }
+    },
+    {
+      "collector": "windows_service",
+      "fields": {
+        "query": "failed",
+        "scope": "current",
+        "service": "DiagTrack"
+      }
+    },
+    {
+      "collector": "windows_service",
+      "fields": {
+        "query": "failed",
+        "scope": "current",
+        "service": "DPS"
+      }
+    },
+    {
+      "collector": "windows_service",
+      "fields": {
+        "query": "failed",
+        "scope": "current",
+        "service": "SysMain"
+      }
+    },
+    {
+      "collector": "windows_service",
+      "fields": {
+        "query": "failed",
+        "scope": "current",
+        "service": "EventLog"
+      }
+    },
+    {
+      "collector": "windows_service",
+      "fields": {
+        "event": "log_span",
+        "log_first": "2018-07-09T20:49:14.0577461Z",
+        "log_last": "2018-08-03T06:44:06.4185334Z",
+        "scope": "history",
+        "service": "*"
+      }
+    }
+  ]
 }

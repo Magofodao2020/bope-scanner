@@ -99,6 +99,43 @@ struct HostFile {
     /// fixture never modelled WMI, which the accessor reports as `Unsupported`.
     #[serde(default)]
     wmi: Option<FixtureWmi>,
+    /// What the Service Control Manager reports (B.O.P.E, ADR 0130). Absent means the fixture never
+    /// modelled it, which the accessor reports as `Unsupported`.
+    #[serde(default)]
+    services: Option<FixtureServices>,
+}
+
+/// The Service Control Manager, for the fixture host (B.O.P.E, ADR 0130).
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FixtureServices {
+    /// The time every query answers with; invented, so that a snapshot does not change with the clock.
+    queried_at: String,
+    /// The manager itself refuses the account.
+    #[serde(default)]
+    access_denied: bool,
+    /// Installed services by internal name. A name not here is not installed.
+    #[serde(default)]
+    installed: BTreeMap<String, FixtureService>,
+}
+
+/// One installed service. `config` absent with `config_access_denied: false` is a configuration
+/// query that failed.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FixtureService {
+    #[serde(default)]
+    state: Option<crate::ServiceRunState>,
+    #[serde(default)]
+    pid: Option<u32>,
+    #[serde(default)]
+    config: Option<crate::ServiceConfig>,
+    /// The service itself refuses a status query.
+    #[serde(default)]
+    access_denied: bool,
+    /// The status is readable but the configuration is refused.
+    #[serde(default)]
+    config_access_denied: bool,
 }
 
 /// One raw volume image (B.O.P.E, ADR 0124): its bytes as `hex:` or `from:`, or `access_denied: true`
@@ -1221,6 +1258,7 @@ pub struct FixtureHost {
     /// Keyed by the upper-cased drive letter; `None` is a volume the account may not open.
     volumes: BTreeMap<char, Option<Vec<u8>>>,
     wmi: Option<FixtureWmi>,
+    services: Option<FixtureServices>,
 }
 
 impl FixtureHost {
@@ -1360,6 +1398,7 @@ impl FixtureHost {
             drive_roots,
             volumes,
             wmi: file.wmi,
+            services: file.services,
             event_log_channels: file
                 .event_log_channels
                 .map(|channels| {
@@ -2031,6 +2070,45 @@ impl crate::ModuleSource for FixtureHost {
                 "this fixture does not describe process {pid}'s memory"
             ))
         })
+    }
+}
+
+impl crate::ServiceSource for FixtureHost {
+    fn service_status(&self, name: &str) -> Result<Option<crate::ServiceStatus>, SourceError> {
+        let services = self.services.as_ref().ok_or_else(|| {
+            SourceError::Unsupported(
+                "this fixture host does not describe the Service Control Manager".to_owned(),
+            )
+        })?;
+        if services.access_denied {
+            return Err(SourceError::AccessDenied);
+        }
+        let queried_at = services
+            .queried_at
+            .parse::<jiff::Timestamp>()
+            .map_err(|e| SourceError::Failed(format!("fixture queried_at: {e}")))?;
+        let Some(service) = services
+            .installed
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(name))
+            .map(|(_, s)| s)
+        else {
+            return Ok(None);
+        };
+        if service.access_denied {
+            return Err(SourceError::AccessDenied);
+        }
+        let config = match (&service.config, service.config_access_denied) {
+            (_, true) => Err(SourceError::AccessDenied),
+            (Some(config), false) => Ok(config.clone()),
+            (None, false) => Err(SourceError::Failed("configuration query failed".to_owned())),
+        };
+        Ok(Some(crate::ServiceStatus {
+            state: service.state.unwrap_or(crate::ServiceRunState::Other),
+            pid: service.pid.filter(|p| *p != 0),
+            config,
+            queried_at,
+        }))
     }
 }
 

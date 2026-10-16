@@ -79,6 +79,11 @@ pub struct Status {
     pub message: Option<String>,
     /// The tier of the running scan.
     pub tier: Option<ScanTier>,
+    /// The collector running now, while the scan runs and before the report is built; `None` when
+    /// none is (not running, or building the report after the last one).
+    pub current: Option<String>,
+    /// Whether a stop was asked for and the scan has not stopped yet.
+    pub cancel_requested: bool,
 }
 
 impl ScanSlot {
@@ -124,6 +129,8 @@ impl ScanSlot {
                 started_at: None,
                 message: Some("state lock poisoned".to_owned()),
                 tier: None,
+                current: None,
+                cancel_requested: false,
             };
         };
         let (state, message, tier) = match &inner.phase {
@@ -133,6 +140,14 @@ impl ScanSlot {
             Phase::Cancelled => ("cancelled", None, None),
             Phase::Failed(message) => ("failed", Some(message.clone()), None),
         };
+        let running = matches!(inner.phase, Phase::Running { .. });
+        let current = if !running {
+            None
+        } else if let Some(last) = inner.steps.last() {
+            last.next.clone()
+        } else {
+            bope_collectors::all().first().map(|c| c.id().to_owned())
+        };
         Status {
             state,
             steps: inner.steps.clone(),
@@ -140,6 +155,8 @@ impl ScanSlot {
             started_at: inner.started_at.clone(),
             message,
             tier,
+            current,
+            cancel_requested: running && self.cancel.load(Ordering::SeqCst),
         }
     }
 

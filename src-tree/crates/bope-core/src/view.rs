@@ -24,12 +24,13 @@ use crate::model::{
 /// The order collectors are shown in, by both front ends: the rows of one collector together, and
 /// entries of the timeline that carry the same time (ADR 0045, ADR 0051). A collector not named here
 /// follows the named ones.
-pub const COLLECTOR_ORDER: [&str; 40] = [
+pub const COLLECTOR_ORDER: [&str; 42] = [
     "roblox_trace",
     "roblox",
     "roblox_process",
     "executor_footprint",
     "roblox_files",
+    "recycle_bin",
     "fastflags",
     "shortcuts",
     "amcache",
@@ -41,6 +42,7 @@ pub const COLLECTOR_ORDER: [&str; 40] = [
     "machine_identity",
     "driver_service",
     "windows_start",
+    "windows_service",
     "pci_device",
     "autostart",
     "wmi_subscription",
@@ -247,6 +249,76 @@ pub struct ReportView {
     /// The Roblox tool correlation (`roblox_trace`, B.O.P.E ADR 0123), arranged for its own panel.
     #[serde(default)]
     pub roblox_tools: RobloxTools,
+    /// The `windows_service` observations (B.O.P.E, ADR 0130), in both modes: the state of five
+    /// Windows services and their Service Control Manager history. Nothing in them is about the person.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub services: Vec<Observation>,
+    /// The `recycle_bin` observations (B.O.P.E, ADR 0131). Self mode: all of them. SS mode: the
+    /// summary of the folder, which names nothing, and the items whose name matches the tool catalog,
+    /// redacted like evidence (ADR 0014).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recycle_bin: Vec<Observation>,
+}
+
+/// Every observation of `collector` in `report`, matched or not, without duplicates, in report order.
+fn all_observations_of(report: &Report, collector: &str) -> Vec<Observation> {
+    let mut rows: Vec<Observation> = Vec::new();
+    let found = report.evidence.iter().filter_map(|e| match &e.state {
+        EvidenceState::Found { observations } => Some(observations),
+        _ => None,
+    });
+    let unmatched = report.unmatched.iter().map(|g| &g.observations);
+    for o in found.chain(unmatched).flatten() {
+        if o.collector == collector && !rows.contains(o) {
+            rows.push(o.clone());
+        }
+    }
+    rows
+}
+
+/// The `windows_service` rows for either mode (B.O.P.E, ADR 0130), current state first.
+fn services_of(
+    report: &Report,
+    mode: Mode,
+    machine_root: Option<&MachineRoot>,
+) -> Vec<Observation> {
+    let mut rows = all_observations_of(report, "windows_service");
+    if mode == Mode::Ss {
+        for o in &mut rows {
+            for value in o.fields.values_mut() {
+                redact_value(value, machine_root);
+            }
+        }
+    }
+    let scope = |o: &Observation| {
+        o.fields.get("scope").and_then(serde_json::Value::as_str) != Some("current")
+    };
+    rows.sort_by_key(scope);
+    rows
+}
+
+/// The `recycle_bin` rows for `mode` (B.O.P.E, ADR 0131).
+fn recycle_bin_of(
+    report: &Report,
+    mode: Mode,
+    machine_root: Option<&MachineRoot>,
+) -> Vec<Observation> {
+    let rows = all_observations_of(report, "recycle_bin");
+    if mode == Mode::SelfCheck {
+        return rows;
+    }
+    rows.into_iter()
+        .filter(|o| {
+            o.fields.get("scope").and_then(serde_json::Value::as_str) == Some("bin")
+                || o.fields.contains_key("tool_id")
+        })
+        .map(|mut o| {
+            for value in o.fields.values_mut() {
+                redact_value(value, machine_root);
+            }
+            o
+        })
+        .collect()
 }
 
 /// The `roblox_trace` rows a view shows in its own panel (B.O.P.E, ADR 0123).
@@ -555,6 +627,8 @@ fn build(report: &Report, mode: Mode) -> ReportView {
             cross_source: cross_source_of(report),
             assessment: None,
             roblox_tools: roblox_tools_of(report, mode, None),
+            services: services_of(report, mode, None),
+            recycle_bin: recycle_bin_of(report, mode, None),
         },
         Mode::Ss => {
             let machine_root = report
@@ -610,6 +684,8 @@ fn build(report: &Report, mode: Mode) -> ReportView {
                 cross_source: cross_source_of(report),
                 assessment: None,
                 roblox_tools: roblox_tools_of(report, mode, machine_root),
+                services: services_of(report, mode, machine_root),
+                recycle_bin: recycle_bin_of(report, mode, machine_root),
             }
         }
     }

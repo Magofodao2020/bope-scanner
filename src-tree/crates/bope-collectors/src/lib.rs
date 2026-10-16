@@ -38,6 +38,7 @@ pub mod posture;
 pub mod powershell_text;
 pub mod prefetch;
 pub mod process;
+pub mod recycle_bin;
 pub mod roblox;
 pub mod roblox_files;
 pub mod roblox_process;
@@ -52,6 +53,7 @@ pub mod usb_device;
 pub mod user_files;
 pub mod userassist;
 pub mod usn;
+pub mod windows_service;
 pub mod windows_start;
 pub mod wmi_subscription;
 
@@ -348,6 +350,7 @@ pub fn all() -> Vec<Box<dyn Collector>> {
         Box::new(powershell_text::PowershellText),
         Box::new(prefetch::Prefetch),
         Box::new(process::Process),
+        Box::new(recycle_bin::RecycleBin),
         Box::new(roblox::Roblox),
         Box::new(roblox_files::RobloxFiles),
         Box::new(roblox_process::RobloxProcess),
@@ -360,6 +363,7 @@ pub fn all() -> Vec<Box<dyn Collector>> {
         Box::new(user_files::UserFiles),
         Box::new(userassist::UserAssist),
         Box::new(usn::Usn::default()),
+        Box::new(windows_service::WindowsService),
         Box::new(windows_start::WindowsStart),
         Box::new(wmi_subscription::WmiSubscription),
         // Last: it correlates the runs before it (ADR 0123).

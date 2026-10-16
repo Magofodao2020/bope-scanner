@@ -883,6 +883,150 @@ pub trait WmiSubscriptionSource {
     ) -> Result<Option<Vec<WmiObject>>, SourceError>;
 }
 
+/// What the Service Control Manager says a service is doing now (B.O.P.E, ADR 0130).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "fixture", derive(serde::Deserialize))]
+#[cfg_attr(feature = "fixture", serde(rename_all = "snake_case"))]
+pub enum ServiceRunState {
+    /// `SERVICE_STOPPED`.
+    Stopped,
+    /// `SERVICE_START_PENDING`.
+    StartPending,
+    /// `SERVICE_STOP_PENDING`.
+    StopPending,
+    /// `SERVICE_RUNNING`.
+    Running,
+    /// `SERVICE_CONTINUE_PENDING`.
+    ContinuePending,
+    /// `SERVICE_PAUSE_PENDING`.
+    PausePending,
+    /// `SERVICE_PAUSED`.
+    Paused,
+    /// Any other value.
+    Other,
+}
+
+impl ServiceRunState {
+    /// The `dwCurrentState` value as this enum.
+    pub fn from_win32(value: u32) -> Self {
+        match value {
+            1 => Self::Stopped,
+            2 => Self::StartPending,
+            3 => Self::StopPending,
+            4 => Self::Running,
+            5 => Self::ContinuePending,
+            6 => Self::PausePending,
+            7 => Self::Paused,
+            _ => Self::Other,
+        }
+    }
+
+    /// The name observations use.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Stopped => "stopped",
+            Self::StartPending => "start_pending",
+            Self::StopPending => "stop_pending",
+            Self::Running => "running",
+            Self::ContinuePending => "continue_pending",
+            Self::PausePending => "pause_pending",
+            Self::Paused => "paused",
+            Self::Other => "other",
+        }
+    }
+}
+
+/// How a service is configured to start (B.O.P.E, ADR 0130).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "fixture", derive(serde::Deserialize))]
+#[cfg_attr(feature = "fixture", serde(rename_all = "snake_case"))]
+pub enum ServiceStartType {
+    /// `SERVICE_BOOT_START`.
+    Boot,
+    /// `SERVICE_SYSTEM_START`.
+    System,
+    /// `SERVICE_AUTO_START`.
+    Automatic,
+    /// `SERVICE_DEMAND_START`.
+    Manual,
+    /// `SERVICE_DISABLED`.
+    Disabled,
+    /// Any other value.
+    Other,
+}
+
+impl ServiceStartType {
+    /// The `dwStartType` value as this enum.
+    pub fn from_win32(value: u32) -> Self {
+        match value {
+            0 => Self::Boot,
+            1 => Self::System,
+            2 => Self::Automatic,
+            3 => Self::Manual,
+            4 => Self::Disabled,
+            _ => Self::Other,
+        }
+    }
+
+    /// The name observations use.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Boot => "boot",
+            Self::System => "system",
+            Self::Automatic => "automatic",
+            Self::Manual => "manual",
+            Self::Disabled => "disabled",
+            Self::Other => "other",
+        }
+    }
+}
+
+/// A service's configuration as `QueryServiceConfigW` returns it (B.O.P.E, ADR 0130).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "fixture", derive(serde::Deserialize))]
+#[cfg_attr(feature = "fixture", serde(deny_unknown_fields))]
+pub struct ServiceConfig {
+    /// How it starts.
+    pub start_type: ServiceStartType,
+    /// Its display name.
+    #[cfg_attr(feature = "fixture", serde(default))]
+    pub display_name: Option<String>,
+    /// The account it runs as.
+    #[cfg_attr(feature = "fixture", serde(default))]
+    pub account: Option<String>,
+    /// Its command line as configured, bounded to [`MAX_SERVICE_TEXT_BYTES`].
+    #[cfg_attr(feature = "fixture", serde(default))]
+    pub binary_path: Option<String>,
+}
+
+/// Most bytes kept of one service text.
+pub const MAX_SERVICE_TEXT_BYTES: usize = 2048;
+
+/// One service as the Service Control Manager reports it at the moment it was asked (B.O.P.E,
+/// ADR 0130).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServiceStatus {
+    /// What it is doing.
+    pub state: ServiceRunState,
+    /// Its process id while it has one.
+    pub pid: Option<u32>,
+    /// Its configuration, or why it could not be read: status and configuration are two queries, and
+    /// one can be refused when the other is not.
+    pub config: Result<ServiceConfig, SourceError>,
+    /// When the host asked.
+    pub queried_at: jiff::Timestamp,
+}
+
+/// Read-only access to the Service Control Manager (B.O.P.E, ADR 0130).
+///
+/// A live host opens the manager with `SC_MANAGER_CONNECT` and a service with
+/// `SERVICE_QUERY_STATUS | SERVICE_QUERY_CONFIG` only; it never starts, stops, pauses or reconfigures
+/// one. `Ok(None)` when no service of that name is installed.
+pub trait ServiceSource {
+    /// The service whose internal (key) name is `name`.
+    fn service_status(&self, name: &str) -> Result<Option<ServiceStatus>, SourceError>;
+}
+
 /// Cuts `text` to at most `limit` bytes at a character boundary, and says whether it cut.
 pub fn bound_text(mut text: String, limit: usize) -> (String, bool) {
     if text.len() <= limit {
@@ -1046,6 +1190,7 @@ pub trait Host:
     + AccountSource
     + RandomReadSource
     + WmiSubscriptionSource
+    + ServiceSource
 {
     /// Operating system family.
     fn platform(&self) -> Platform;
@@ -1285,6 +1430,14 @@ impl WmiSubscriptionSource for NonWindowsHost {
     ) -> Result<Option<Vec<WmiObject>>, SourceError> {
         Err(SourceError::Unsupported(
             "no WMI on this platform".to_owned(),
+        ))
+    }
+}
+
+impl ServiceSource for NonWindowsHost {
+    fn service_status(&self, _name: &str) -> Result<Option<ServiceStatus>, SourceError> {
+        Err(SourceError::Unsupported(
+            "no Service Control Manager on this platform".to_owned(),
         ))
     }
 }

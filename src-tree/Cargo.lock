@@ -310,6 +310,7 @@ version = "0.10.0"
 dependencies = [
  "bope-host",
  "bope-parsers",
+ "jiff",
  "thiserror 2.0.20",
  "windows 0.62.2",
  "windows-registry",

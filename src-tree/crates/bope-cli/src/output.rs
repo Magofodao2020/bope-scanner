@@ -366,6 +366,8 @@ pub fn consent(lang: Lang) -> String {
             \x20 - Amcache.hve, the inventory of programs Windows keeps, read from an existing shadow copy (none is created): entries for Roblox tools and for programs in your own folders\n\
             \x20 - the SRUM database (SRUDB.dat), read from the same kind of existing shadow copy: for programs named like Roblox tools or in your own folders, how much CPU time and network traffic Windows recorded per hour, never a user name or a network name\n\
             \x20 - permanent WMI event subscriptions (filters, consumers and bindings): their names and queries, the program a consumer starts and its SHA-256 and signature, never a script's text or a command's arguments\n\
+            \x20 - the state of five Windows services (PcaSvc, DiagTrack, DPS, SysMain, EventLog) as the Service Control Manager reports it now, with query rights only, and their state, start-type and install events (7034, 7036, 7040, 7045) in the System log; no service is started, stopped or changed\n\
+            \x20 - this account's $Recycle.Bin on the system drive: for each item its $I file (where it was, its size, when it was deleted) and the times of its $I and $R entries; the deleted files themselves are never opened, nothing is restored or removed, and SS mode shows only a summary without names and the items matching the Roblox tool catalog\n\
             \x20 - Roblox FastFlag files (ClientAppSettings.json in the Roblox and bootstrapper folders, and settings files of FastFlag tools): size, times, SHA-256, how many flags of each kind, and the names of network/physics flags, never the values\n\
             \x20 - in the change journal, the names of files that match the Roblox tool catalog, with how many times they were created, deleted or renamed\n\
             \x20 - what Explorer records about programs this Windows account started: UserAssist (how many times and when last), MuiCache (the program's own product and company name), FeatureUsage (taskbar counters) and the AppCompatCache, with the path of each program\n\
@@ -405,6 +407,8 @@ pub fn consent(lang: Lang) -> String {
             \x20 - Amcache.hve รายการโปรแกรมที่ Windows เก็บ อ่านจาก shadow copy ที่มีอยู่แล้ว (ไม่สร้างใหม่): เฉพาะเครื่องมือของ Roblox และโปรแกรมในโฟลเดอร์ของคุณ\n\
             \x20 - ฐานข้อมูล SRUM (SRUDB.dat) อ่านจาก shadow copy ที่มีอยู่แล้วเช่นกัน: เวลา CPU และปริมาณเครือข่ายรายชั่วโมงของโปรแกรมที่มีชื่อเหมือนเครื่องมือ Roblox หรืออยู่ในโฟลเดอร์ของคุณ\n\
             \x20 - การสมัครรับเหตุการณ์ WMI แบบถาวร: ชื่อ query และโปรแกรมที่ consumer เรียก พร้อม SHA-256 และลายเซ็น ไม่เก็บเนื้อหา script หรือ argument\n\
+            \x20 - สถานะของบริการ Windows ห้าตัว (PcaSvc, DiagTrack, DPS, SysMain, EventLog) ตามที่ Service Control Manager รายงานตอนนี้ ด้วยสิทธิ์อ่านอย่างเดียว และเหตุการณ์สถานะ ประเภทการเริ่ม และการติดตั้ง (7034, 7036, 7040, 7045) ใน log System ไม่มีการเริ่ม หยุด หรือแก้ไขบริการใด\n\
+            \x20 - $Recycle.Bin ของบัญชีนี้บนไดรฟ์ระบบ: ไฟล์ $I ของแต่ละรายการ (ตำแหน่งเดิม ขนาด เวลาที่ลบ) และเวลาของรายการ $I และ $R ไม่เปิดไฟล์ที่ถูกลบ ไม่กู้คืนหรือลบสิ่งใด และโหมด SS แสดงเพียงสรุปที่ไม่มีชื่อและรายการที่ตรงกับรายการเครื่องมือ Roblox\n\
             \x20 - ไฟล์ FastFlag ของ Roblox (ClientAppSettings.json ในโฟลเดอร์ Roblox และ bootstrapper และไฟล์ตั้งค่าของเครื่องมือ FastFlag): ขนาด เวลา SHA-256 จำนวน flag แต่ละชนิด และชื่อ flag ด้านเครือข่าย/ฟิสิกส์ โดยไม่อ่านค่า\n\
             \x20 - ชื่อไฟล์ใน change journal ที่ตรงกับรายการเครื่องมือของ Roblox พร้อมจำนวนครั้งที่ถูกสร้าง ลบ หรือเปลี่ยนชื่อ\n\
             \x20 - สิ่งที่ Explorer บันทึกเกี่ยวกับโปรแกรมที่บัญชี Windows นี้เปิด: UserAssist (กี่ครั้งและครั้งล่าสุดเมื่อไร), MuiCache (ชื่อผลิตภัณฑ์และบริษัทของโปรแกรม), FeatureUsage (ตัวนับของ taskbar) และ AppCompatCache พร้อม path ของแต่ละโปรแกรม\n\
@@ -1326,6 +1330,7 @@ mod tests {
         ),
         ("prefetch", &["Prefetch"]),
         ("process", &[]),
+        ("recycle_bin", &["$Recycle.Bin", "$I", "$R"]),
         ("roblox", &["Roblox", "ClientAppSettings.json", "Bloxstrap"]),
         ("roblox_files", &["$Recycle.Bin", ".zip"]),
         ("roblox_process", &["RobloxPlayerBeta.exe", "Hyperion"]),
@@ -1339,6 +1344,10 @@ mod tests {
         ("user_files", &["Mark of the Web", ".lua"]),
         ("userassist", &["UserAssist", "Solara"]),
         ("usn", &["change journal"]),
+        (
+            "windows_service",
+            &["SysMain", "Service Control Manager", "7036"],
+        ),
         ("windows_start", &["System", "Fast Startup"]),
         ("wmi_subscription", &["WMI"]),
     ];

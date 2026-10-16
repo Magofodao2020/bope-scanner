@@ -661,6 +661,311 @@ fn windows_start(parsed: &SerializedEvtxRecord<Value>) -> Option<WindowsStart> {
     })
 }
 
+// ---------------------------------------------------------------------------------------------------
+// Service Control Manager history (B.O.P.E, ADR 0130)
+// ---------------------------------------------------------------------------------------------------
+
+/// The provider and channel the Service Control Manager writes its events to.
+const SCM: (&str, &str) = ("Service Control Manager", "System");
+
+/// The Service Control Manager event ids read, and nothing else: 7034 (a service ended unexpectedly),
+/// 7036 (a service entered a state), 7040 (a service's start type was changed), 7045 (a service was
+/// installed).
+pub const SERVICE_EVENT_IDS: [u32; 4] = [7034, 7036, 7040, 7045];
+
+/// One Service Control Manager event as [`service_events`] reads it. Every text is what the record
+/// holds, never translated or completed; a value the record did not hold is `None`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServiceEvent {
+    /// When the record was written.
+    pub written: Timestamp,
+    /// The record's own identifier.
+    pub record_id: u64,
+    /// One of [`SERVICE_EVENT_IDS`].
+    pub event_id: u32,
+    /// The service's internal (key) name, when the record holds it: the binary data of 7034 and 7036,
+    /// `param4` of 7040.
+    pub service: Option<String>,
+    /// The name the record shows: `param1`, or `ServiceName` of 7045. Usually the display name, and
+    /// in the language Windows had when it wrote the record.
+    pub shown_name: Option<String>,
+    /// 7036: the state as the record words it (`param2`).
+    pub state_text: Option<String>,
+    /// 7040: the start type before and after, as the record words them.
+    pub start_before: Option<String>,
+    /// See [`Self::start_before`].
+    pub start_after: Option<String>,
+    /// 7045: the program, start type and account the service was installed with.
+    pub image_path: Option<String>,
+    /// See [`Self::image_path`].
+    pub start_type: Option<String>,
+    /// See [`Self::image_path`].
+    pub account: Option<String>,
+}
+
+/// What [`service_events`] read from one log.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ServiceEvents {
+    /// The events `keep` accepted, in the order the records were read.
+    pub events: Vec<ServiceEvent>,
+    /// How many Service Control Manager records of the four ids were read, kept or not.
+    pub scm_records: usize,
+    /// The oldest and newest time any record of the log was written: the span in which "no event"
+    /// can be read at all.
+    pub span: Option<(Timestamp, Timestamp)>,
+    /// Chunks or records that did not parse, as [`records`] reports them.
+    pub rejected: Vec<RejectedRecord>,
+}
+
+/// Reads the four Service Control Manager events of one log and keeps those `keep` accepts (B.O.P.E,
+/// ADR 0130). An event is recognised by provider, channel and id together (ADR 0031). Nothing in the
+/// log is changed; only the values of [`ServiceEvent`] are read from a record.
+///
+/// # Errors
+///
+/// As [`records`].
+pub fn service_events(
+    bytes: &[u8],
+    keep: &dyn Fn(&ServiceEvent) -> bool,
+) -> Result<ServiceEvents, ParseError> {
+    if bytes.len() < FILE_HEADER_LEN {
+        return Err(ParseError::Truncated {
+            expected: FILE_HEADER_LEN,
+            found: bytes.len(),
+        });
+    }
+    let mut parser = EvtxParser::from_read_seek(Cursor::new(bytes))
+        .map_err(|error| to_parse_error(&error, Stage::Header))?;
+    let mut out = ServiceEvents::default();
+    for outcome in parser.records_json_value() {
+        match outcome {
+            Ok(parsed) => {
+                let at = parsed.timestamp;
+                out.span = Some(out.span.map_or((at, at), |(a, b)| (a.min(at), b.max(at))));
+                let identity = record(&parsed);
+                if let Some(event) = service_event(
+                    identity.provider.as_deref(),
+                    identity.channel.as_deref(),
+                    identity.event_id,
+                    parsed.timestamp,
+                    parsed.event_record_id,
+                    parsed.data.get("Event").and_then(|e| e.get("EventData")),
+                ) {
+                    out.scm_records += 1;
+                    if keep(&event) {
+                        out.events.push(event);
+                    }
+                }
+            }
+            Err(error) => out.rejected.push(RejectedRecord {
+                chunk_number: failed_chunk(&error),
+                record_id: failed_record(&error),
+                reason: to_parse_error(&error, Stage::Record),
+            }),
+        }
+    }
+    Ok(out)
+}
+
+/// One record's values, when it is one of the four events. Separate from [`service_events`] so the
+/// reading of `EventData` is tested on its own.
+pub fn service_event(
+    provider: Option<&str>,
+    channel: Option<&str>,
+    event_id: Option<u32>,
+    written: Timestamp,
+    record_id: u64,
+    data: Option<&Value>,
+) -> Option<ServiceEvent> {
+    let event_id = event_id.filter(|id| SERVICE_EVENT_IDS.contains(id))?;
+    if provider != Some(SCM.0) || channel != Some(SCM.1) {
+        return None;
+    }
+    let get = |name: &str| -> Option<String> {
+        data.and_then(|d| d.get(name))
+            .map(scalar)
+            .and_then(|v| match v {
+                Value::String(s) => Some(s.trim().to_owned()),
+                Value::Number(n) => Some(n.to_string()),
+                _ => None,
+            })
+            .filter(|s| !s.is_empty())
+    };
+    let binary_name = || get("Binary").and_then(|hex| utf16_hex(&hex));
+    let mut event = ServiceEvent {
+        written,
+        record_id,
+        event_id,
+        service: None,
+        shown_name: get("param1"),
+        state_text: None,
+        start_before: None,
+        start_after: None,
+        image_path: None,
+        start_type: None,
+        account: None,
+    };
+    match event_id {
+        7036 => {
+            event.service = binary_name();
+            event.state_text = get("param2");
+        }
+        7034 => event.service = binary_name(),
+        7040 => {
+            event.start_before = get("param2");
+            event.start_after = get("param3");
+            event.service = get("param4");
+        }
+        _ => {
+            event.shown_name = get("ServiceName");
+            event.image_path = get("ImagePath");
+            event.start_type = get("StartType");
+            event.account = get("AccountName");
+        }
+    }
+    Some(event)
+}
+
+/// Text stored as hex of UTF-16LE up to its first NUL, as 7034 and 7036 carry the service's key name.
+/// `None` for anything else.
+pub fn utf16_hex(hex: &str) -> Option<String> {
+    let hex = hex.trim();
+    if !hex.len().is_multiple_of(4) || hex.is_empty() || !hex.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    let units: Vec<u16> = (0..hex.len() / 4)
+        .map(|i| {
+            let lo = u8::from_str_radix(hex.get(i * 4..i * 4 + 2)?, 16).ok()?;
+            let hi = u8::from_str_radix(hex.get(i * 4 + 2..i * 4 + 4)?, 16).ok()?;
+            Some(u16::from_le_bytes([lo, hi]))
+        })
+        .collect::<Option<Vec<u16>>>()?
+        .into_iter()
+        .take_while(|u| *u != 0)
+        .collect();
+    let text = String::from_utf16(&units).ok()?;
+    (!text.is_empty() && text.chars().all(|c| !c.is_control())).then_some(text)
+}
+
+#[cfg(test)]
+mod service_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn at() -> Timestamp {
+        "2026-10-01T12:00:00Z".parse().unwrap()
+    }
+
+    fn hex(text: &str) -> String {
+        use std::fmt::Write as _;
+        text.encode_utf16()
+            .chain([0])
+            .flat_map(u16::to_le_bytes)
+            .fold(String::new(), |mut out, b| {
+                let _ = write!(out, "{b:02X}");
+                out
+            })
+    }
+
+    #[test]
+    fn a_state_change_names_the_service_by_its_key() {
+        let data = json!({"param1": "SysMain", "param2": "stopped", "Binary": hex("SysMain")});
+        let event = service_event(
+            Some("Service Control Manager"),
+            Some("System"),
+            Some(7036),
+            at(),
+            9,
+            Some(&data),
+        )
+        .unwrap();
+        assert_eq!(event.service.as_deref(), Some("SysMain"));
+        assert_eq!(event.state_text.as_deref(), Some("stopped"));
+        assert_eq!(event.written, at());
+        assert_eq!(event.record_id, 9);
+    }
+
+    #[test]
+    fn a_start_type_change_and_an_install_keep_their_values() {
+        let change = json!({"param1": "Diagnostic Policy Service", "param2": "auto start",
+            "param3": "disabled", "param4": "DPS"});
+        let event = service_event(
+            Some("Service Control Manager"),
+            Some("System"),
+            Some(7040),
+            at(),
+            1,
+            Some(&change),
+        )
+        .unwrap();
+        assert_eq!(event.service.as_deref(), Some("DPS"));
+        assert_eq!(event.start_before.as_deref(), Some("auto start"));
+        assert_eq!(event.start_after.as_deref(), Some("disabled"));
+        let install = json!({"ServiceName": "x", "ImagePath": "C:\\x.sys", "StartType": "demand start",
+            "AccountName": ""});
+        let event = service_event(
+            Some("Service Control Manager"),
+            Some("System"),
+            Some(7045),
+            at(),
+            2,
+            Some(&install),
+        )
+        .unwrap();
+        assert_eq!(event.shown_name.as_deref(), Some("x"));
+        assert_eq!(event.image_path.as_deref(), Some("C:\\x.sys"));
+        assert_eq!(event.account, None, "an empty value is not kept");
+    }
+
+    #[test]
+    fn other_providers_ids_and_bad_binary_are_not_read() {
+        let data = json!({"param1": "x"});
+        assert!(
+            service_event(
+                Some("Other"),
+                Some("System"),
+                Some(7036),
+                at(),
+                1,
+                Some(&data)
+            )
+            .is_none()
+        );
+        assert!(
+            service_event(
+                Some("Service Control Manager"),
+                Some("System"),
+                Some(7000),
+                at(),
+                1,
+                Some(&data)
+            )
+            .is_none()
+        );
+        assert!(
+            service_event(
+                Some("Service Control Manager"),
+                Some("Application"),
+                Some(7036),
+                at(),
+                1,
+                Some(&data)
+            )
+            .is_none()
+        );
+        assert_eq!(utf16_hex("ZZ"), None);
+        assert_eq!(utf16_hex("410"), None);
+        assert_eq!(utf16_hex(&hex("DPS")).as_deref(), Some("DPS"));
+    }
+
+    #[test]
+    fn a_log_too_short_is_an_error() {
+        assert!(service_events(&[0; 10], &|_| true).is_err());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{EvtxFile, number, records, scalar};

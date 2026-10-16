@@ -45,4 +45,6 @@ pub mod usn_journal;
 #[cfg(windows)]
 pub mod random_read;
 
+pub mod services;
+
 pub mod wmi;

@@ -1472,6 +1472,10 @@ expression: view
         "reason": "read_failed"
       },
       {
+        "collector": "recycle_bin",
+        "reason": "read_failed"
+      },
+      {
         "collector": "roblox",
         "reason": "read_failed"
       },
@@ -1510,6 +1514,10 @@ expression: view
         "reason": "read_failed"
       },
       {
+        "collector": "windows_service",
+        "reason": "source_absent"
+      },
+      {
         "collector": "windows_start",
         "reason": "read_failed"
       }
@@ -1521,6 +1529,7 @@ expression: view
     "roblox_process",
     "executor_footprint",
     "roblox_files",
+    "recycle_bin",
     "fastflags",
     "shortcuts",
     "amcache",
@@ -1532,6 +1541,7 @@ expression: view
     "machine_identity",
     "driver_service",
     "windows_start",
+    "windows_service",
     "pci_device",
     "autostart",
     "wmi_subscription",
