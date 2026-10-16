@@ -11,7 +11,7 @@
 //!    catalog ([`crate::catalog`]) becomes one hit, labelled with the **evidence class** its source
 //!    can support — `execution` (Prefetch, BAM, PCA, `UserAssist`, `FeatureUsage`), `resource_usage`
 //!    (SRUM recording CPU time, which counts as execution), `inventory` (`ShimCache`, Amcache),
-//!    `reference` (shortcuts, Explorer lists, ShellBags, Open/Save dialog, `MuiCache`, a SRUM id with
+//!    `reference` (shortcuts, Explorer lists, `ShellBags`, Open/Save dialog, `MuiCache`, a SRUM id with
 //!    no CPU time), `file_history` (the change journal), `deleted` (the Recycle Bin, a journal deletion,
 //!    a Master File Table record no longer in use), `current_file`, `archive_content`,
 //!    `executor_layout`, `executor_scripts`, `installation`, `persistence`, `running`,
@@ -421,9 +421,9 @@ pub fn correlate(host: &dyn Host, runs: &[CollectorRun]) -> CollectorRun {
                 )
                 || collector == "fastflags";
             let historical = matches!(
-        class,
-        "execution" | "inventory" | "reference" | "resource_usage"
-    );
+                class,
+                "execution" | "inventory" | "reference" | "resource_usage"
+            );
             let exists = if historical
                 && exists_checks < MAX_EXISTS_CHECKS
                 && let Some(p) = path.as_deref().filter(|p| checkable(p))
@@ -708,7 +708,8 @@ mod tests {
                             ("name", "Fluxus.exe".into()),
                             (
                                 "path",
-                                r"\Device\HarddiskVolume3\Users\a\Downloads\Solara\Fluxus.exe".into(),
+                                r"\Device\HarddiskVolume3\Users\a\Downloads\Solara\Fluxus.exe"
+                                    .into(),
                             ),
                             ("used_cpu", true.into()),
                             ("tool_id", "fluxus".into()),
@@ -726,10 +727,7 @@ mod tests {
                         ("scope", "entry".into()),
                         ("in_use", false.into()),
                         ("name", "Fluxus.exe".into()),
-                        (
-                            "path",
-                            r"C:\Users\a\Downloads\Solara\Fluxus.exe".into(),
-                        ),
+                        ("path", r"C:\Users\a\Downloads\Solara\Fluxus.exe".into()),
                         ("tool_id", "fluxus".into()),
                         ("match_kind", "known_tool".into()),
                         ("si_modified", "2026-10-14T19:00:00Z".into()),

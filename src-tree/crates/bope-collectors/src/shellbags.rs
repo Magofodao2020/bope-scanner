@@ -3,7 +3,7 @@
 // Part of B.O.P.E Scanner, a modified version of aeterna-rongroi. Using it to evade detection is out of
 // scope — see AGENTS.md.
 
-//! Folders Explorer remembers (ShellBags) and the files and folders the common Open/Save dialog
+//! Folders Explorer remembers (`ShellBags`) and the files and folders the common Open/Save dialog
 //! remembers (`OpenSavePidlMRU`), narrowed to the Roblox tool catalog (B.O.P.E, ADR 0126).
 //! **Full scan only.** `list` is the discriminator:
 //!
@@ -141,7 +141,10 @@ impl Walk<'_> {
             .with("source", source)
             .with("path", path.clone())
             .with("name", location::last_segment(&path).to_owned())
-            .with(location::FIELD, location::classify(&classifiable(&path)).as_str())
+            .with(
+                location::FIELD,
+                location::classify(&classifiable(&path)).as_str(),
+            )
             .with("roblox_context", roblox)
             .maybe("drive", drive)
             .maybe("system_drive", system_drive)

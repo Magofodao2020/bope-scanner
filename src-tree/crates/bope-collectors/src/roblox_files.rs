@@ -283,44 +283,44 @@ impl Walk<'_> {
         }
         self.archives += 1;
         // (name, size, encrypted)
-        let (format, entries, encrypted_headers): (&str, Vec<(String, u64, bool)>, bool) = if indexed
-        {
-            let Some(listing) = self.indexed_archive(path) else {
-                return;
+        let (format, entries, encrypted_headers): (&str, Vec<(String, u64, bool)>, bool) =
+            if indexed {
+                let Some(listing) = self.indexed_archive(path) else {
+                    return;
+                };
+                (
+                    listing.format.as_str(),
+                    listing
+                        .entries
+                        .iter()
+                        .map(|e| {
+                            let name = if e.directory {
+                                format!("{}/", e.name.trim_end_matches('/'))
+                            } else {
+                                e.name.clone()
+                            };
+                            (name, e.size, e.encrypted)
+                        })
+                        .collect(),
+                    listing.encrypted_headers,
+                )
+            } else {
+                let Ok(Some(bytes)) = self.host.read_file(path) else {
+                    return;
+                };
+                let Ok(listing) = zip_names::list(&bytes) else {
+                    return;
+                };
+                (
+                    "zip",
+                    listing
+                        .entries
+                        .iter()
+                        .map(|e| (e.name.clone(), u64::from(e.size), false))
+                        .collect(),
+                    false,
+                )
             };
-            (
-                listing.format.as_str(),
-                listing
-                    .entries
-                    .iter()
-                    .map(|e| {
-                        let name = if e.directory {
-                            format!("{}/", e.name.trim_end_matches('/'))
-                        } else {
-                            e.name.clone()
-                        };
-                        (name, e.size, e.encrypted)
-                    })
-                    .collect(),
-                listing.encrypted_headers,
-            )
-        } else {
-            let Ok(Some(bytes)) = self.host.read_file(path) else {
-                return;
-            };
-            let Ok(listing) = zip_names::list(&bytes) else {
-                return;
-            };
-            (
-                "zip",
-                listing
-                    .entries
-                    .iter()
-                    .map(|e| (e.name.clone(), u64::from(e.size), false))
-                    .collect(),
-                false,
-            )
-        };
         let lower: Vec<String> = entries
             .iter()
             .map(|e| e.0.to_lowercase().replace('\\', "/"))
@@ -565,7 +565,12 @@ mod tests {
         ));
         let other = crate::common::hex(&recycle::build(r"C:\Users\a\Documents\taxes.pdf", 1, 1));
         let rar = crate::common::hex(&bope_parsers::archive_names::build_rar5(
-            &["Wave/", "Wave/Wave.exe", "Wave/autoexec/", "Wave/workspace/"],
+            &[
+                "Wave/",
+                "Wave/Wave.exe",
+                "Wave/autoexec/",
+                "Wave/workspace/",
+            ],
             false,
         ));
         let seven = crate::common::hex(&bope_parsers::archive_names::build_7z(
@@ -674,14 +679,20 @@ filesystem:
             .unwrap();
         assert_eq!(wave.fields["archive_format"], "rar5");
         assert_eq!(wave.fields["executor_layout"], true);
-        assert_eq!(wave.fields["path"], r"C:\Users\a\Downloads\wave.rar\Wave\Wave.exe");
+        assert_eq!(
+            wave.fields["path"],
+            r"C:\Users\a\Downloads\wave.rar\Wave\Wave.exe"
+        );
         let krnl = all
             .iter()
             .find(|o| o.fields["scope"] == "archive_entry" && o.fields["name"] == "KRNL.exe")
             .unwrap();
         assert_eq!(krnl.fields["archive_format"], "7z");
         assert_eq!(krnl.fields["tool_id"], "krnl");
-        assert!(all.iter().all(|o| o.fields.get("name").is_none_or(|n| n != "notes.txt")));
+        assert!(
+            all.iter()
+                .all(|o| o.fields.get("name").is_none_or(|n| n != "notes.txt"))
+        );
         let locked = all
             .iter()
             .find(|o| o.fields["scope"] == "archive" && o.fields["name"] == "locked.rar")

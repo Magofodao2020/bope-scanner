@@ -1,4 +1,4 @@
-# Guia de screenshare — B.O.P.E Scanner **0.9.0**
+# Guia de screenshare — B.O.P.E Scanner **0.10.0**
 
 Para quem conduz a verificação (staff) e para quem é verificado (jogador). O programa lê rastros; quem
 decide é uma pessoa que entende o que eles significam. Leia também [capacidades.md](capacidades.md).
@@ -6,12 +6,12 @@ decide é uma pessoa que entende o que eles significam. Leia também [capacidade
 ## 1. Antes da chamada
 
 1. Publique no seu servidor/Discord o **SHA-256** do arquivo oficial da sua comunidade
-   (`bope-scanner-0.9.0-windows-x64.exe` ou `bope-scanner-cli-0.9.0-windows-x64.exe`). O release traz
+   (`bope-scanner-0.10.0-windows-x64.exe` ou `bope-scanner-cli-0.10.0-windows-x64.exe`). O release traz
    `SHA256SUMS.txt`.
 2. Peça ao jogador que baixe o arquivo **durante** a chamada e confira o hash compartilhando a tela:
 
    ```powershell
-   Get-FileHash .\bope-scanner-0.9.0-windows-x64.exe -Algorithm SHA256
+   Get-FileHash .\bope-scanner-0.10.0-windows-x64.exe -Algorithm SHA256
    ```
 
    Hash diferente: pare. Não use cópias enviadas por terceiros.

@@ -101,11 +101,7 @@ struct Folder {
 
 /// The path of `record` from the folders read, and whether every parent was found with the sequence
 /// number the child recorded.
-fn path_of(
-    volume: char,
-    record: &FileRecord,
-    folders: &BTreeMap<u64, Folder>,
-) -> (String, bool) {
+fn path_of(volume: char, record: &FileRecord, folders: &BTreeMap<u64, Folder>) -> (String, bool) {
     let Some(name) = record.best_name() else {
         return (String::new(), false);
     };
@@ -204,7 +200,11 @@ impl Collector for Mft {
         let Some(mft_start) = boot.mft_cluster.checked_mul(boot.cluster_size) else {
             return unmeasured(ID, UnmeasuredReason::ReadFailed);
         };
-        let first = match host.read_volume_at(volume, mft_start, usize::try_from(record_size).unwrap_or(1024)) {
+        let first = match host.read_volume_at(
+            volume,
+            mft_start,
+            usize::try_from(record_size).unwrap_or(1024),
+        ) {
             Ok(b) => b,
             Err(e) => return fail(&e),
         };
@@ -237,12 +237,11 @@ impl Collector for Mft {
                     break 'runs;
                 }
                 let want = CHUNK.min(length - at);
-                let bytes = match host.read_volume_at(volume, start + at, usize::try_from(want).unwrap_or(0)) {
-                    Ok(b) => b,
-                    Err(_) => {
-                        stopped_by = Some("read_error");
-                        break 'runs;
-                    }
+                let Ok(bytes) =
+                    host.read_volume_at(volume, start + at, usize::try_from(want).unwrap_or(0))
+                else {
+                    stopped_by = Some("read_error");
+                    break 'runs;
                 };
                 for slot in bytes.chunks(usize::try_from(record_size).unwrap_or(1024)) {
                     let this = number;
@@ -361,7 +360,10 @@ impl Collector for Mft {
                 .with("records_in_use", in_use)
                 .with("records_not_in_use", free)
                 .with("torn_records", torn)
-                .with("matches", u64::try_from(matches.len()).unwrap_or(0) + more_matches)
+                .with(
+                    "matches",
+                    u64::try_from(matches.len()).unwrap_or(0) + more_matches,
+                )
                 .with("partial", partial)
                 .maybe("stopped_by", stopped_by)
                 .observe(ID),
@@ -427,17 +429,26 @@ mod tests {
         assert_eq!(all[0].fields["scope"], "volume");
         assert_eq!(all[0].fields["records_not_in_use"], 1);
         assert_eq!(all[0].fields["matches"], 2);
-        let solara = all.iter().find(|o| o.fields.get("name").is_some_and(|n| n == "Solara.exe")).unwrap();
+        let solara = all
+            .iter()
+            .find(|o| o.fields.get("name").is_some_and(|n| n == "Solara.exe"))
+            .unwrap();
         assert_eq!(solara.fields["in_use"], false);
         assert_eq!(solara.fields["path"], r"C:\Users\a\Downloads\Solara.exe");
         assert_eq!(solara.fields["path_complete"], true);
         assert_eq!(solara.fields["location_kind"], "user_downloads");
         assert_eq!(solara.fields["si_created_before_fn"], true);
         assert_eq!(solara.fields["tool_id"], "solara");
-        let blox = all.iter().find(|o| o.fields.get("name").is_some_and(|n| n == "Bloxstrap")).unwrap();
+        let blox = all
+            .iter()
+            .find(|o| o.fields.get("name").is_some_and(|n| n == "Bloxstrap"))
+            .unwrap();
         assert_eq!(blox.fields["directory"], true);
         assert_eq!(blox.fields["in_use"], true);
-        assert!(all.iter().all(|o| o.fields.get("name").is_none_or(|n| n != "notes.txt")));
+        assert!(
+            all.iter()
+                .all(|o| o.fields.get("name").is_none_or(|n| n != "notes.txt"))
+        );
     }
 
     #[test]
@@ -450,7 +461,10 @@ mod tests {
             run(true, "volumes:\n  C: { access_denied: true }\n"),
             unmeasured(ID, UnmeasuredReason::AccessDenied)
         );
-        assert_eq!(run(true, ""), unmeasured(ID, UnmeasuredReason::SourceAbsent));
+        assert_eq!(
+            run(true, ""),
+            unmeasured(ID, UnmeasuredReason::SourceAbsent)
+        );
         assert_eq!(
             run(true, "volumes:\n  C: { hex: '00112233' }\n"),
             unmeasured(ID, UnmeasuredReason::SourceAbsent)

@@ -54,7 +54,7 @@ struct ScanArgs {
     /// Language of the text output.
     #[arg(long, value_enum, default_value_t = Lang::Pt)]
     lang: Lang,
-    /// Save the report to this folder as JSON, HTML and text, each with a `.sha256` file beside it.
+    /// Save the report to this folder as JSON, HTML, text and PDF, each with a `.sha256` file beside it.
     #[arg(long, value_name = "FOLDER")]
     export_dir: Option<std::path::PathBuf>,
     /// Which formats `--export-dir` writes, comma-separated: json, html, txt, pdf.

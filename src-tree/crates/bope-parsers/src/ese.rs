@@ -284,7 +284,9 @@ impl Record<'_> {
                 offset += column_size(c);
             }
             let size = column_size(column);
-            return d.get(offset..offset.checked_add(size)?).map(|v| (v.to_vec(), 0));
+            return d
+                .get(offset..offset.checked_add(size)?)
+                .map(|v| (v.to_vec(), 0));
         }
         let n_var = usize::try_from(last_var.saturating_sub(127)).ok()?;
         let var_data = var_start.checked_add(n_var * 2)?;
@@ -303,7 +305,9 @@ impl Record<'_> {
                 u16_at(d, var_start + (i - 1) * 2)? & 0x7FFF
             };
             let (start, end) = (usize::from(start), usize::from(end & 0x7FFF));
-            return d.get(var_data + start..var_data + end).map(|v| (v.to_vec(), 0));
+            return d
+                .get(var_data + start..var_data + end)
+                .map(|v| (v.to_vec(), 0));
         }
         let last_end = if n_var > 0 {
             usize::from(u16_at(d, var_start + (n_var - 1) * 2)? & 0x7FFF)
@@ -397,11 +401,19 @@ fn decode(column: &Column, raw: &[u8]) -> Value {
         coltyp::BIT => raw.first().map(|b| Value::Int(i64::from(*b != 0))),
         coltyp::UNSIGNED_BYTE => raw.first().map(|b| Value::UInt(u64::from(*b))),
         coltyp::SHORT => int(2).map(|b| Value::Int(i64::from(i16::from_le_bytes([b[0], b[1]])))),
-        coltyp::UNSIGNED_SHORT => int(2).map(|b| Value::UInt(u64::from(u16::from_le_bytes([b[0], b[1]])))),
-        coltyp::LONG => int(4).map(|b| Value::Int(i64::from(i32::from_le_bytes([b[0], b[1], b[2], b[3]])))),
-        coltyp::UNSIGNED_LONG => int(4).map(|b| Value::UInt(u64::from(u32::from_le_bytes([b[0], b[1], b[2], b[3]])))),
+        coltyp::UNSIGNED_SHORT => {
+            int(2).map(|b| Value::UInt(u64::from(u16::from_le_bytes([b[0], b[1]]))))
+        }
+        coltyp::LONG => {
+            int(4).map(|b| Value::Int(i64::from(i32::from_le_bytes([b[0], b[1], b[2], b[3]]))))
+        }
+        coltyp::UNSIGNED_LONG => {
+            int(4).map(|b| Value::UInt(u64::from(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))))
+        }
         coltyp::CURRENCY | coltyp::LONG_LONG => int(8).map(|b| Value::Int(i64::from_le_bytes(b))),
-        coltyp::SINGLE => int(4).map(|b| Value::Float(f64::from(f32::from_le_bytes([b[0], b[1], b[2], b[3]])))),
+        coltyp::SINGLE => {
+            int(4).map(|b| Value::Float(f64::from(f32::from_le_bytes([b[0], b[1], b[2], b[3]]))))
+        }
         coltyp::DOUBLE => int(8).map(|b| Value::Float(f64::from_le_bytes(b))),
         coltyp::DATE_TIME => int(8).map(|b| Value::OleDate(f64::from_le_bytes(b))),
         coltyp::TEXT | coltyp::LONG_TEXT => Some(Value::Text(text(raw, column.codepage))),
@@ -412,7 +424,7 @@ fn decode(column: &Column, raw: &[u8]) -> Value {
 
 /// Text in the column's code page: UTF-16LE for 1200, otherwise single-byte text read as Latin-1.
 pub fn text(raw: &[u8], codepage: u32) -> String {
-    if codepage == 1200 && raw.len() % 2 == 0 {
+    if codepage == 1200 && raw.len().is_multiple_of(2) {
         utf16(raw)
     } else {
         raw.iter()
@@ -598,7 +610,8 @@ pub struct Database<R> {
 impl<R: FnMut(u64, usize) -> Option<Vec<u8>>> Database<R> {
     /// Reads and checks the file header.
     pub fn open(mut read: R, limits: Limits) -> Result<Self, ParseError> {
-        let head = read(0, 668).ok_or_else(|| malformed("header", "the header could not be read"))?;
+        let head =
+            read(0, 668).ok_or_else(|| malformed("header", "the header could not be read"))?;
         if head.len() < 240 {
             return Err(ParseError::Truncated {
                 expected: 240,
@@ -651,7 +664,9 @@ impl<R: FnMut(u64, usize) -> Option<Vec<u8>>> Database<R> {
         let tag_state = u16_at(&buf, 34)?;
         let flags = u32_at(&buf, 36)?;
         let tag_count = usize::from(tag_state & 0x0FFF);
-        let data = buf.get(header_len..header_len.checked_add(mic_free)?)?.to_vec();
+        let data = buf
+            .get(header_len..header_len.checked_add(mic_free)?)?
+            .to_vec();
         let mask: u16 = if small { 0x1FFF } else { 0x7FFF };
         let mut tags = Vec::with_capacity(tag_count);
         for i in 0..tag_count {
@@ -677,11 +692,7 @@ impl<R: FnMut(u64, usize) -> Option<Vec<u8>>> Database<R> {
 
     /// Hands every live leaf entry of the tree rooted at `root` to `visit`, as its data and whether
     /// the page uses small-page tags.
-    fn walk(
-        &mut self,
-        root: u32,
-        visit: &mut dyn FnMut(&[u8], bool) -> bool,
-    ) -> Walk {
+    fn walk(&mut self, root: u32, visit: &mut dyn FnMut(&[u8], bool) -> bool) -> Walk {
         let mut walk = Walk::default();
         let mut seen = BTreeSet::new();
         let mut stack: Vec<(u32, u8)> = vec![(root, 0)];
@@ -876,23 +887,25 @@ pub enum Cell {
 
 /// Encodes one record from `(column id, cell)` pairs, as ESE lays it out. For tests in this workspace.
 pub fn encode_record(columns: &[Column], cells: &[(u32, Cell)], small: bool) -> Vec<u8> {
-    let last_fixed = columns.iter().filter(|c| c.id < 128).map(|c| c.id).max().unwrap_or(0);
+    let last_fixed = columns
+        .iter()
+        .filter(|c| c.id < 128)
+        .map(|c| c.id)
+        .max()
+        .unwrap_or(0);
     let mut fixed = Vec::new();
     let mut nulls = vec![0_u8; usize::try_from(last_fixed.div_ceil(8)).unwrap_or(0)];
     for c in columns.iter().filter(|c| c.id < 128) {
         let size = column_size(c);
-        match cells.iter().find(|(id, _)| *id == c.id) {
-            Some((_, Cell::Fixed(b))) => {
-                let mut v = b.clone();
-                v.resize(size, 0);
-                fixed.extend_from_slice(&v);
-            }
-            _ => {
-                fixed.extend(std::iter::repeat_n(0, size));
-                let bit = usize::try_from(c.id - 1).unwrap_or(0);
-                if let Some(n) = nulls.get_mut(bit / 8) {
-                    *n |= 1 << (bit % 8);
-                }
+        if let Some((_, Cell::Fixed(b))) = cells.iter().find(|(id, _)| *id == c.id) {
+            let mut v = b.clone();
+            v.resize(size, 0);
+            fixed.extend_from_slice(&v);
+        } else {
+            fixed.extend(std::iter::repeat_n(0, size));
+            let bit = usize::try_from(c.id - 1).unwrap_or(0);
+            if let Some(n) = nulls.get_mut(bit / 8) {
+                *n |= 1 << (bit % 8);
             }
         }
     }
@@ -984,7 +997,8 @@ pub fn build(page_size: u32, tables: &[BuildTable]) -> Vec<u8> {
         for (i, (offset, len)) in tags.iter().enumerate() {
             let at = size - (i + 1) * 4;
             page[at..at + 2].copy_from_slice(&u16::try_from(*len).unwrap_or(0).to_le_bytes());
-            page[at + 2..at + 4].copy_from_slice(&u16::try_from(*offset).unwrap_or(0).to_le_bytes());
+            page[at + 2..at + 4]
+                .copy_from_slice(&u16::try_from(*offset).unwrap_or(0).to_le_bytes());
         }
         page
     };
@@ -1007,7 +1021,7 @@ pub fn build(page_size: u32, tables: &[BuildTable]) -> Vec<u8> {
         for (i, chunk) in chunks.iter().enumerate() {
             let n = first + u32::try_from(i).unwrap_or(0);
             let next = if i + 1 < chunks.len() { n + 1 } else { 0 };
-            let flags = PAGE_LEAF | PAGE_NEW_RECORD_FORMAT | if i == 0 { 1 } else { 0 };
+            let flags = PAGE_LEAF | PAGE_NEW_RECORD_FORMAT | u32::from(i == 0);
             pages.insert(n, make_page(n, chunk, next, flags));
         }
         count
@@ -1063,7 +1077,10 @@ pub fn build(page_size: u32, tables: &[BuildTable]) -> Vec<u8> {
             pages.insert(CATALOG_ROOT, fixed);
         } else {
             // Page 4 points at the first overflow page.
-            pages.insert(CATALOG_ROOT, make_page(CATALOG_ROOT, &[], overflow, PAGE_LEAF | 1));
+            pages.insert(
+                CATALOG_ROOT,
+                make_page(CATALOG_ROOT, &[], overflow, PAGE_LEAF | 1),
+            );
             pages.extend(tmp);
         }
     }
@@ -1126,13 +1143,19 @@ mod tests {
             .map(|i| {
                 vec![
                     (1, Cell::Fixed(vec![0])),
-                    (2, Cell::Fixed(i32::try_from(i).unwrap().to_le_bytes().to_vec())),
+                    (
+                        2,
+                        Cell::Fixed(i32::try_from(i).unwrap().to_le_bytes().to_vec()),
+                    ),
                     (3, Cell::Fixed(46_000.5_f64.to_le_bytes().to_vec())),
                     (256, Cell::Tagged(blob.clone(), 0x01)),
                 ]
             })
             .collect();
-        build(page_size, &[("SruDbIdMapTable".to_owned(), columns, records)])
+        build(
+            page_size,
+            &[("SruDbIdMapTable".to_owned(), columns, records)],
+        )
     }
 
     #[test]
@@ -1196,8 +1219,10 @@ mod tests {
         for (i, b) in file.iter_mut().enumerate().skip(4096 * 5) {
             *b = u8::try_from(i % 251).unwrap();
         }
-        if let Ok(mut db) = Database::open(reader(&file), Limits::default()) {
-            if let Ok(tables) = db.tables() {
+        if let Ok(mut db) = Database::open(reader(&file), Limits::default())
+            && let Ok(tables) = db.tables()
+        {
+            {
                 for t in &tables {
                     let _ = db.records(t, &mut |r| {
                         for c in &t.columns {

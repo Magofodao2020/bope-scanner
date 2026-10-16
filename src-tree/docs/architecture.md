@@ -249,6 +249,10 @@ so every B.O.P.E build shows **UNOFFICIAL BUILD** in the CLI header, the GUI and
 | `shortcuts` | B.O.P.E, ADR 0119. `.lnk` files on Desktop, Start menu, taskbar and Recent: target path, whether it exists, saved target times; arguments never. | no | B.O.P.E 0.9.0 |
 | `amcache` | B.O.P.E, ADR 0120. `Amcache.hve` from the newest existing shadow copy (live file tried first): inventory rows for catalog names, Roblox paths and user folders. | yes | B.O.P.E 0.9.0 |
 | `fastflags` | B.O.P.E, ADR 0122. `ClientAppSettings.json` in Roblox and launcher version folders, launcher settings and FastFlag tools' JSON: counts by kind, network/physics flag names; never values. | no | B.O.P.E 0.9.0 |
+| `srum` | B.O.P.E, ADR 0124. `SRUDB.dat` from the newest existing shadow copy, through `bope_parsers::ese`: CPU time, timeline and network totals per program for catalog names, Roblox paths and user folders. | yes | B.O.P.E 0.10.0 |
+| `mft` | B.O.P.E, ADR 0125. Full scan. `$MFT` of the system volume read raw (`\\.\C:`, read-only): catalog names in records in use or freed, path, SI/FN times. | yes | B.O.P.E 0.10.0 |
+| `shellbags` | B.O.P.E, ADR 0126. Full scan. ShellBags (`UsrClass.dat`, `NTUSER.DAT`) and `OpenSavePidlMRU`, only paths with catalog names or naming Roblox. | no | B.O.P.E 0.10.0 |
+| `wmi_subscription` | B.O.P.E, ADR 0127. Permanent WMI filters, consumers and bindings in `ROOT\subscription` and `ROOT\default` via `ExecQuery`; program hash and signature; script text never kept. | for other accounts' objects | B.O.P.E 0.10.0 |
 | `roblox_trace` | B.O.P.E, ADR 0123. Reads nothing: correlates the other collectors' rows into hits, per-tool status and source availability. Runs last. | no | B.O.P.E 0.9.0 |
 
 Every new collector adds a row here in the same PR.

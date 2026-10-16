@@ -100,15 +100,21 @@ fn malformed(field: &'static str, detail: &str) -> ParseError {
 }
 
 fn u16_at(b: &[u8], at: usize) -> Option<u16> {
-    Some(u16::from_le_bytes(b.get(at..at.checked_add(2)?)?.try_into().ok()?))
+    Some(u16::from_le_bytes(
+        b.get(at..at.checked_add(2)?)?.try_into().ok()?,
+    ))
 }
 
 fn u32_at(b: &[u8], at: usize) -> Option<u32> {
-    Some(u32::from_le_bytes(b.get(at..at.checked_add(4)?)?.try_into().ok()?))
+    Some(u32::from_le_bytes(
+        b.get(at..at.checked_add(4)?)?.try_into().ok()?,
+    ))
 }
 
 fn u64_at(b: &[u8], at: usize) -> Option<u64> {
-    Some(u64::from_le_bytes(b.get(at..at.checked_add(8)?)?.try_into().ok()?))
+    Some(u64::from_le_bytes(
+        b.get(at..at.checked_add(8)?)?.try_into().ok()?,
+    ))
 }
 
 fn clean(name: &str) -> String {
@@ -129,7 +135,11 @@ pub fn list<R: FnMut(u64, usize) -> Option<Vec<u8>>>(
     }
 }
 
-fn rar4(read: &mut dyn FnMut(u64, usize) -> Option<Vec<u8>>, file_size: u64) -> Result<Listing, ParseError> {
+#[allow(clippy::unnecessary_wraps)] // one signature for every format `list` dispatches to
+fn rar4(
+    read: &mut dyn FnMut(u64, usize) -> Option<Vec<u8>>,
+    file_size: u64,
+) -> Result<Listing, ParseError> {
     let mut out = Listing {
         format: Format::Rar4,
         entries: Vec::new(),
@@ -222,7 +232,11 @@ fn vint(b: &[u8], at: usize) -> Option<(u64, usize)> {
     None
 }
 
-fn rar5(read: &mut dyn FnMut(u64, usize) -> Option<Vec<u8>>, file_size: u64) -> Result<Listing, ParseError> {
+#[allow(clippy::unnecessary_wraps)] // one signature for every format `list` dispatches to
+fn rar5(
+    read: &mut dyn FnMut(u64, usize) -> Option<Vec<u8>>,
+    file_size: u64,
+) -> Result<Listing, ParseError> {
     let mut out = Listing {
         format: Format::Rar5,
         entries: Vec::new(),
@@ -363,7 +377,10 @@ impl Cursor<'_> {
     }
 
     fn skip(&mut self, n: usize) -> Result<&[u8], ParseError> {
-        let end = self.at.checked_add(n).ok_or_else(|| malformed("7z_header", "size"))?;
+        let end = self
+            .at
+            .checked_add(n)
+            .ok_or_else(|| malformed("7z_header", "size"))?;
         let s = self
             .b
             .get(self.at..end)
@@ -381,7 +398,11 @@ impl Cursor<'_> {
 
     fn digests(&mut self, n: usize) -> Result<(), ParseError> {
         let all = self.byte()?;
-        let defined = if all == 0 { self.bits(n)? } else { vec![true; n] };
+        let defined = if all == 0 {
+            self.bits(n)?
+        } else {
+            vec![true; n]
+        };
         let present = defined.iter().filter(|d| **d).count();
         self.skip(present * 4)?;
         Ok(())
@@ -403,6 +424,7 @@ struct Streams {
     unpack_size: u64,
 }
 
+#[allow(clippy::too_many_lines)]
 fn streams_info(c: &mut Cursor<'_>) -> Result<Streams, ParseError> {
     let mut s = Streams::default();
     let mut folders = 0;
@@ -592,7 +614,10 @@ fn decode_header(
     };
     match result {
         Ok(()) => Ok(Ok(out.buf)),
-        Err(_) => Err(malformed("7z_header", "the compressed header did not decode")),
+        Err(_) => Err(malformed(
+            "7z_header",
+            "the compressed header did not decode",
+        )),
     }
 }
 
@@ -663,11 +688,7 @@ fn files_info(c: &mut Cursor<'_>, out: &mut Listing) -> Result<(), ParseError> {
         } else {
             false
         };
-        let by_attribute = attributes
-            .get(i)
-            .copied()
-            .flatten()
-            .map(|a| a & 0x10 != 0);
+        let by_attribute = attributes.get(i).copied().flatten().map(|a| a & 0x10 != 0);
         out.entries.push(Entry {
             name: clean(name),
             size: 0,
@@ -748,7 +769,12 @@ fn seven_zip(
                 }
                 return Ok(out);
             }
-            _ => return Err(malformed("7z_header", "neither a header nor an encoded header")),
+            _ => {
+                return Err(malformed(
+                    "7z_header",
+                    "neither a header nor an encoded header",
+                ));
+            }
         }
     }
     out.partial = true;
@@ -853,7 +879,11 @@ pub fn build_7z(names: &[&str], compressed: bool) -> Vec<u8> {
     header.extend_from_slice(&files);
     let mut name_data = vec![0_u8];
     for name in names {
-        for u in name.trim_end_matches('/').encode_utf16().chain(std::iter::once(0)) {
+        for u in name
+            .trim_end_matches('/')
+            .encode_utf16()
+            .chain(std::iter::once(0))
+        {
             name_data.extend_from_slice(&u.to_le_bytes());
         }
     }
@@ -882,7 +912,9 @@ pub fn build_7z(names: &[&str], compressed: bool) -> Vec<u8> {
         let mut end = vec![0x17, 0x06, 0x00, 0x01, 0x09];
         end.push(0x80 | u8::try_from(stream.len() >> 8).unwrap_or(0));
         end.push(u8::try_from(stream.len() & 0xFF).unwrap_or(0));
-        end.extend_from_slice(&[0x00, 0x07, 0x0B, 0x01, 0x00, 0x01, 0x23, 0x03, 0x01, 0x01, 0x05]);
+        end.extend_from_slice(&[
+            0x00, 0x07, 0x0B, 0x01, 0x00, 0x01, 0x23, 0x03, 0x01, 0x01, 0x05,
+        ]);
         end.extend_from_slice(&props);
         end.push(0x0C);
         end.push(0x80 | u8::try_from(header.len() >> 8).unwrap_or(0));
@@ -914,7 +946,10 @@ mod tests {
     }
 
     fn names(l: &Listing) -> Vec<(String, bool)> {
-        l.entries.iter().map(|e| (e.name.clone(), e.directory)).collect()
+        l.entries
+            .iter()
+            .map(|e| (e.name.clone(), e.directory))
+            .collect()
     }
 
     const NAMES: [&str; 3] = ["Solara/", "Solara/bin/Solara.exe", "Solara/autoexec/a.lua"];

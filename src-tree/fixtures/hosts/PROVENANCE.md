@@ -283,3 +283,13 @@ Windows build, that networking was disabled, and who checked it for a real user 
 how. Neither `tools/fixture-gen/` nor `cargo xtask scrub-check` exists — ADR 0016 counts both among the
 promises this repository has made with no code behind them, and `CONVENTIONS.md` §4 records the gap — so
 that last check is a person's.
+
+## B.O.P.E 0.10.0 binary fixtures
+
+`roblox-tool-history/` and `baseline-roblox-win11/` hold `SRUDB.dat` (an ESE database with
+`SruDbIdMapTable` and the application resource usage table) and `volume-c.img` (a small NTFS volume with
+a `$MFT`). Both are **synthetic**, written by `cargo run -p bope-parsers --example synthetic_fixtures`
+from `bope_parsers::srum::build` and `bope_parsers::ntfs::build_volume`; every path, number and time is
+invented. Their ShellBags and Open/Save values in `host.yaml` are printed by the same example. Neither
+file was captured from a real machine, so they show that the parsers read what the builders write — not
+that a real Windows `SRUDB.dat` or `$MFT` parses (see docs/bope/validacao-windows.md).

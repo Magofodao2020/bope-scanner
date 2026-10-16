@@ -809,13 +809,18 @@ pub trait RandomReadSource {
     /// At most `len` bytes of the file at `path`, from `offset`. Fewer bytes come back only at the
     /// end of the file. `len` above [`MAX_READ_AT_BYTES`] is refused with [`SourceError::TooLarge`].
     /// `Ok(None)` when nothing is there.
-    fn read_file_at(&self, path: &str, offset: u64, len: usize)
-    -> Result<Option<Vec<u8>>, SourceError>;
+    fn read_file_at(
+        &self,
+        path: &str,
+        offset: u64,
+        len: usize,
+    ) -> Result<Option<Vec<u8>>, SourceError>;
 
     /// `len` bytes of the raw volume `volume` (a drive letter) from `offset`, as the disk holds them.
     /// The host aligns the read to the volume's sectors itself. Fewer bytes come back only at the end
     /// of the volume. `len` above [`MAX_READ_AT_BYTES`] is refused.
-    fn read_volume_at(&self, volume: char, offset: u64, len: usize) -> Result<Vec<u8>, SourceError>;
+    fn read_volume_at(&self, volume: char, offset: u64, len: usize)
+    -> Result<Vec<u8>, SourceError>;
 }
 
 /// One WMI object of an event subscription, as the documented WMI query interface returns it
@@ -899,7 +904,9 @@ pub fn slice_at(content: &[u8], offset: u64, len: usize) -> Result<Vec<u8>, Sour
             limit: MAX_READ_AT_BYTES,
         });
     }
-    let start = usize::try_from(offset).unwrap_or(usize::MAX).min(content.len());
+    let start = usize::try_from(offset)
+        .unwrap_or(usize::MAX)
+        .min(content.len());
     let end = start.saturating_add(len).min(content.len());
     Ok(content[start..end].to_vec())
 }
@@ -1257,7 +1264,12 @@ impl RandomReadSource for NonWindowsHost {
         ))
     }
 
-    fn read_volume_at(&self, _volume: char, _offset: u64, _len: usize) -> Result<Vec<u8>, SourceError> {
+    fn read_volume_at(
+        &self,
+        _volume: char,
+        _offset: u64,
+        _len: usize,
+    ) -> Result<Vec<u8>, SourceError> {
         Err(SourceError::Unsupported(
             "no NTFS volume on this platform".to_owned(),
         ))
@@ -1271,7 +1283,9 @@ impl WmiSubscriptionSource for NonWindowsHost {
         _class: WmiSubscriptionClass,
         _properties: &[&str],
     ) -> Result<Option<Vec<WmiObject>>, SourceError> {
-        Err(SourceError::Unsupported("no WMI on this platform".to_owned()))
+        Err(SourceError::Unsupported(
+            "no WMI on this platform".to_owned(),
+        ))
     }
 }
 

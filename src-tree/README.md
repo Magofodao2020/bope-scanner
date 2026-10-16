@@ -5,10 +5,10 @@ sobre programas, arquivos, dispositivos e configurações, correlaciona fontes i
 achado com as explicações legítimas que também o produzem e mostra tudo na tela enquanto o jogador
 compartilha. **Nunca diz que um PC está limpo** — e nunca declara culpa sozinho.
 
-**Versão atual: 0.9.0** — baseada no [aeterna-rongroi](https://github.com/aeterna/aeterna-rongroi) 0.9.0
+**Versão atual: 0.10.0** — baseada no [aeterna-rongroi](https://github.com/aeterna/aeterna-rongroi) 0.9.0
 (GPL-3.0-or-later). Esta é uma **versão modificada**: toda build mostra `UNOFFICIAL BUILD` em relação ao
 aeterna-rongroi, como a seção 7(c) do [NOTICE](NOTICE) exige. Confira o arquivo baixado pelo SHA-256 que
-sua comunidade publica (`bope-scanner-0.9.0-windows-x64.exe`, `bope-scanner-cli-0.9.0-windows-x64.exe`).
+sua comunidade publica (`bope-scanner-0.10.0-windows-x64.exe`, `bope-scanner-cli-0.10.0-windows-x64.exe`).
 
 ## Por que esta base
 
@@ -42,7 +42,7 @@ Auditei os três candidatos lendo o código real, não só os README ([auditoria
   contam uma vez) e lista proximidade temporal entre fontes — sem nunca declarar "limpo".
 - **Interface nova em português**: tela inicial com o que será examinado, direitos, modo SS/próprio,
   padrão/avançada e consentimento **antes** de ler qualquer coisa; progresso real com cancelamento;
-  painel de categorias, pesquisa, filtros e ordenação; relatório salvo em **HTML, JSON e TXT com
+  painel de categorias, pesquisa, filtros e ordenação; relatório salvo em **HTML, JSON, TXT e PDF com
   SHA-256** na pasta escolhida.
 - **CLI em português** (`--lang pt-br` é o padrão) com a mesma avaliação e `--export-dir`.
 - **Detecção específica de Roblox (ADRs 0118–0123):** catálogo de ferramentas (Bloxstrap e forks,
@@ -53,6 +53,13 @@ Auditei os três candidatos lendo o código real, não só os README ([auditoria
   **`roblox_trace`**, que cruza todas as fontes e dá a cada ferramenta um status INFO / SUSPEITO /
   DETECTADO / CORROBORADO com as famílias de fontes independentes, dizendo também quais fontes não
   puderam ser lidas.
+- **Novo na 0.10.0 (ADRs 0124–0129):** **SRUM** (uso de CPU e rede por programa, lido de shadow copy
+  existente com um leitor ESE próprio e limitado), **Master File Table** (metadados de registros em uso
+  e liberados com nomes do catálogo, leitura bruta somente leitura, verificação avançada),
+  **ShellBags e OpenSavePidlMRU** (verificação avançada), **assinaturas WMI permanentes**, nomes
+  dentro de **`.rar` e `.7z`** (só o índice, com limites contra decompression bomb), exportação
+  **PDF** nativa e as descrições das 71 regras herdadas em português. 152 regras no total. Validação em
+  Windows real ainda pendente: [docs/bope/validacao-windows.md](docs/bope/validacao-windows.md).
 - Guia manual: [docs/bope/guia-pc-check-roblox.md](docs/bope/guia-pc-check-roblox.md).
 
 ## Capacidades e limites
@@ -69,7 +76,8 @@ uma checklist de inspeção visual.
 - **Somente leitura**: nenhum arquivo, chave, serviço, driver ou configuração examinado é alterado.
 - Nunca lê senhas, cookies, tokens, mensagens, conteúdo de documentos ou dados de pagamento; de linhas
   de comando guarda só o programa, nunca argumentos; de scripts guarda só quais funções aparecem.
-- Fontes mais pessoais (extensões, arquivos do usuário, MRUs, comandos do PowerShell) só na
+- Fontes mais pessoais (extensões, arquivos do usuário, MRUs, ShellBags, Master File Table, comandos do
+  PowerShell) só na
   **verificação avançada**, escolhida antes de começar.
 - O modo SS oculta o nome de usuário nos caminhos e lista só o que corresponde a uma regra.
 
@@ -79,7 +87,7 @@ Detalhes: [PRIVACY.md](PRIVACY.md).
 
 Requisitos: Windows 10/11 x64, Rust 1.98 (`rust-toolchain.toml`), Node 22 + pnpm, WebView2.
 
-Binários Windows já compilados acompanham a entrega em `bope-scanner-0.9.0-windows-x64.zip` (alvo `x86_64-pc-windows-gnu`,
+Binários Windows já compilados acompanham a entrega em `bope-scanner-0.10.0-windows-x64.zip` (alvo `x86_64-pc-windows-gnu`,
 compilados em Linux com MinGW-w64; o `WebView2Loader.dll` precisa ficar ao lado do `bope-scanner.exe`).
 Para compilar você mesmo no Windows (alvo MSVC, recomendado):
 
@@ -109,7 +117,7 @@ bope-scanner-cli scan --full --lang en --json > relatorio.json
 Verificações do projeto (rodam em Linux e Windows):
 
 ```bash
-cargo test                         # 1 049 testes Rust
+cargo test                         # 1 081 testes Rust (sem o crate do desktop)
 cargo clippy --all-targets -- -D warnings
 cargo xtask check-rules            # regras, fixtures e traduções
 cargo xtask check-baseline         # todas as regras quietas nos PCs de referência

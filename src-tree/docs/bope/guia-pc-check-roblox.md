@@ -131,14 +131,100 @@ manualmente**:
 | Eventos de limpeza (admin) | Visualizador de Eventos → Logs do Windows → Segurança, evento **1102**; Sistema, evento **104** | Um log foi apagado | Não diz o que havia nele |
 
 Fontes que **só ferramentas leem bem** (o B.O.P.E lê): BAM/DAM, UserAssist (ROT13), ShimCache,
-MuiCache, FeatureUsage, Amcache (de uma shadow copy existente), USN Change Journal (nomes do
-catálogo), Program Compatibility Assistant.
+MuiCache, FeatureUsage, Amcache e SRUM (de uma shadow copy existente), USN Change Journal (nomes do
+catálogo), Master File Table, ShellBags e OpenSavePidlMRU, assinaturas WMI permanentes, Program
+Compatibility Assistant. Veja a seção 7A.
 
 Quando uma fonte aponta para um caminho e nada existe lá hoje, registre: **fonte**, **caminho**,
 **horário**, "**não está no caminho hoje**". Isso **não** prova exclusão: pode ter sido movido,
-renomeado ou estar em um pendrive. Exclusão só aparece como tal na Lixeira e no USN Journal.
+renomeado ou estar em um pendrive. Exclusão só aparece como tal na Lixeira, no USN Journal e num
+registro da MFT marcado como fora de uso.
 
 ShimCache e Amcache são **inventário**: mostram que o Windows viu o arquivo, **não** que ele rodou.
+
+## 7A. Fontes adicionadas na versão 0.10.0
+
+Todas são **somente leitura**. Nenhuma cria shadow copy, nenhuma executa nada, nenhuma altera
+Registro, MFT, journal ou WMI. Quando uma fonte não pode ser lida, o relatório mostra **NÃO
+VERIFICADO** com o motivo (`not_admin`, `source_absent`, `access_denied`, `read_failed`,
+`budget_spent`, `not_consented`), nunca "nada encontrado".
+
+### SRUM (uso de recursos por programa)
+
+- **Onde:** `C:\Windows\System32\sru\SRUDB.dat` (banco ESE). O Windows mantém o arquivo aberto; o
+  B.O.P.E tenta o arquivo uma vez e depois lê a **shadow copy mais nova que já existe** (admin).
+  Manualmente não há visualizador no Windows; ferramentas forenses de terceiros leem o mesmo banco.
+- **Demonstra:** que um programa com determinado caminho teve **tempo de CPU** registrado numa hora
+  (`used_cpu`), e totais de bytes de rede. CPU registrada conta como execução na correlação.
+- **Não demonstra:** quando o programa começou (os horários são **horas** em que o SRUM gravou),
+  nem o que ele fez. A última hora antes da shadow copy pode faltar (logs de transação não aplicados).
+- **Falsos positivos:** programa legítimo com o mesmo nome; arquivo renomeado. Sem shadow copy, o
+  SRUM aparece como não verificado.
+
+### MFT e USN Journal (metadados NTFS)
+
+- **Onde:** a `$MFT` do volume do Windows, lida em modo bruto por `\\.\C:` (admin, **verificação
+  avançada**). O USN Journal continua sendo lido na verificação padrão.
+- **Demonstra:** nomes do catálogo em registros da MFT, com caminho reconstruído pelas pastas-pai,
+  horários `$STANDARD_INFORMATION` e `$FILE_NAME`, e se o registro está **em uso** ou **liberado**
+  (entrada excluída). `si_created_before_fn` indica que o horário que programas podem alterar é
+  anterior ao que só o NTFS grava.
+- **Não demonstra:** conteúdo do arquivo (nunca é lido nem recuperado), quem apagou, nem execução. Um
+  registro liberado pode ser reutilizado a qualquer momento. Caminho com `?` = pasta-pai já
+  reutilizada.
+- **Falsos positivos:** download apagado sem abrir; antivírus que removeu algo; arquivos copiados ou
+  extraídos com horários originais (explicam `si_created_before_fn`).
+- **Correlação:** um registro **em uso** é o mesmo arquivo que a listagem de pastas vê — conta como
+  uma família só. Registro liberado + USN + Lixeira podem ser o mesmo evento de exclusão.
+
+### ShellBags e OpenSavePidlMRU
+
+- **Onde:** `HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU`,
+  `HKCU\Software\Microsoft\Windows\Shell\BagMRU` e
+  `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU` (verificação
+  avançada). Só caminhos com nome do catálogo ou que citam o Roblox são mantidos.
+- **Demonstra:** que o Explorer **abriu a pasta** (ShellBags) ou que uma caixa Abrir/Salvar **escolheu
+  o arquivo** (OpenSave), inclusive em pastas que não existem mais, em outra unidade (`drive`,
+  `system_drive: false`) ou em rede.
+- **Não demonstra:** execução. Os horários mostrados são os da própria pasta quando o item foi criado
+  (precisão de 2 s), não o momento em que foi aberta.
+- **Falsos positivos:** pasta comum com nome igual (ex.: "Wave"); olhar dentro de um arquivo
+  compactado ou de uma pasta compartilhada; anexar um arquivo num navegador.
+
+### Assinaturas WMI permanentes
+
+- **Onde:** `ROOT\subscription` e `ROOT\default`, pela interface de consulta documentada do WMI.
+  Manualmente (PowerShell como admin):
+  `Get-CimInstance -Namespace root\subscription -ClassName __EventFilter`, `__EventConsumer` e
+  `__FilterToConsumerBinding`.
+- **Demonstra:** filtros, consumidores e vínculos; o programa que um consumidor inicia (com SHA-256 e
+  assinatura quando o arquivo existe); para scripts, só tamanho, SHA-256 e nomes de arquivos citados.
+- **Não demonstra:** que a assinatura disparou, nem o que o programa faz. O texto de scripts e os
+  argumentos nunca são guardados.
+- **Normal:** `SCM Event Log Filter/Consumer` (vem com o Windows, marcado `known_default`). Software
+  de fabricantes (Dell, HP, Lenovo) e agentes de gerenciamento também usam WMI.
+
+### Arquivos .rar e .7z
+
+- **Demonstra:** os **nomes internos** de arquivos `.rar` (RAR 4 e 5) e `.7z` em Downloads, Área de
+  Trabalho, Temp e locais do catálogo, com o caminho interno e se há estrutura `autoexec` +
+  `workspace`. **Nada é extraído nem executado**; o cabeçalho 7z comprimido é o único dado
+  descomprimido, com limite de 16 MiB.
+- **Não demonstra:** o conteúdo. Arquivo com **cabeçalhos criptografados** aparece como tal, sem
+  nomes. Nomes podem ser enganosos.
+
+### Exportação PDF
+
+O relatório pode ser salvo em PDF além de HTML, TXT e JSON. O PDF traz versão, data/hora UTC,
+cobertura, ferramentas Roblox, fontes lidas e não lidas, evidências e estados, linha do tempo,
+limitações e falsos positivos, e o **SHA-256 do JSON equivalente**. Publique o SHA-256 do próprio PDF
+ao lado dele. Caracteres fora do Windows-1252 (tailandês) saem como `?`: para esses idiomas use HTML.
+
+### Validação em Windows 10/11
+
+O procedimento e o checklist estão em [validacao-windows.md](validacao-windows.md). Até ele ser
+executado num Windows real, trate SRUM, MFT, WMI e a interface gráfica da 0.10.0 como **não validados
+em hardware real** (validados só com dados sintéticos).
 
 ## 8. Correlação com a linha do tempo
 
@@ -201,7 +287,7 @@ módulo dentro do processo do Roblox, ou um rastro que mostre escrita/injeção.
 ## 13. Limitações
 
 - **Manual:** depende do que o jogador mostra e de o operador conhecer os artefatos; lento; não lê
-  BAM, UserAssist, ShimCache, Amcache nem USN sem ferramentas.
+  BAM, UserAssist, ShimCache, Amcache, SRUM, MFT, ShellBags nem USN sem ferramentas.
 - **Automatizado (B.O.P.E):** só vê o que está neste Windows; não vê outro PC, DMA que imita hardware
   comum, macros na memória do mouse, firmware comprometido, Windows reinstalado. Fontes sem
   permissão aparecem como **não verificadas**, nunca como "nada encontrado". O catálogo de nomes é

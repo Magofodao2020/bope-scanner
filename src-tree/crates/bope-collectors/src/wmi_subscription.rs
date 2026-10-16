@@ -53,7 +53,9 @@ pub const KNOWN_DEFAULTS: [&str; 4] = [
     "BVTConsumer",
 ];
 /// Extensions of the file names picked out of an inline script.
-const MENTIONED: [&str; 9] = [".exe", ".dll", ".ps1", ".vbs", ".js", ".bat", ".cmd", ".lua", ".hta"];
+const MENTIONED: [&str; 9] = [
+    ".exe", ".dll", ".ps1", ".vbs", ".js", ".bat", ".cmd", ".lua", ".hta",
+];
 
 static FIELDS: [Field; 30] = [
     Field::text("binding_consumer"),
@@ -244,17 +246,18 @@ impl Collector for WmiSubscription {
         let mut read_any = false;
         let mut first_error: Option<SourceError> = None;
         for namespace in NAMESPACES {
-            let mut read = |class, properties: &[&str]| match host.wmi_objects(namespace, class, properties) {
-                Ok(Some(objects)) => {
-                    read_any = true;
-                    objects
-                }
-                Ok(None) => Vec::new(),
-                Err(e) => {
-                    first_error.get_or_insert(e);
-                    Vec::new()
-                }
-            };
+            let mut read =
+                |class, properties: &[&str]| match host.wmi_objects(namespace, class, properties) {
+                    Ok(Some(objects)) => {
+                        read_any = true;
+                        objects
+                    }
+                    Ok(None) => Vec::new(),
+                    Err(e) => {
+                        first_error.get_or_insert(e);
+                        Vec::new()
+                    }
+                };
             let filters = read(WmiSubscriptionClass::Filter, &FILTER_PROPERTIES);
             let consumers = read(WmiSubscriptionClass::Consumer, &CONSUMER_PROPERTIES);
             let bindings = read(WmiSubscriptionClass::Binding, &BINDING_PROPERTIES);
@@ -293,7 +296,8 @@ impl Collector for WmiSubscription {
                             && KNOWN_DEFAULTS.contains(&consumer_name.as_str()),
                     );
                 observations.push(
-                    Self::tool(fields, &[filter.as_str(), consumer_name.as_str()], None).observe(ID),
+                    Self::tool(fields, &[filter.as_str(), consumer_name.as_str()], None)
+                        .observe(ID),
                 );
             }
         }
@@ -364,7 +368,10 @@ wmi:
             .iter()
             .find(|o| o.fields["class"] == "CommandLineEventConsumer")
             .unwrap();
-        assert_eq!(cmd.fields["program"], r"C:\Users\a\AppData\Local\Solara\Solara.exe");
+        assert_eq!(
+            cmd.fields["program"],
+            r"C:\Users\a\AppData\Local\Solara\Solara.exe"
+        );
         assert_eq!(cmd.fields["has_arguments"], true);
         assert_eq!(cmd.fields["tool_id"], "solara");
         assert_eq!(cmd.fields["sha256"], "a".repeat(64));
@@ -375,7 +382,7 @@ wmi:
             .unwrap();
         assert_eq!(js.fields["mentioned"], "krnl.exe");
         assert_eq!(js.fields["tool_id"], "krnl");
-        assert!(js.fields.get("script_length").is_some());
+        assert!(js.fields.contains_key("script_length"));
         assert!(
             !serde_json::to_string(js).unwrap().contains("WScript"),
             "the script's text is never kept"

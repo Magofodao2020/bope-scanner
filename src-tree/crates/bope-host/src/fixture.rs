@@ -13,10 +13,10 @@ use crate::{
     AccountSource, BootTimeSource, ChannelConfig, ChannelConfigReader, CodeIntegrityOptions,
     DeviceBus, DeviceProperty, DeviceRecord, DeviceSource, DirEntryInfo, EntryTimes,
     EnvironmentSource, EventLogConfigSource, FileId, FilesystemSource, FirmwareSecureBoot,
-    FirmwareSource, Host, IommuTable, Platform, ProcessRecord, ProcessSource, RegistryData,
-    RegistrySource, SignatureCheck, SignatureSource, SourceError, SystemIntegritySource, TpmInfo,
-    TpmSource, UsnJournalRead, UsnJournalSource, UsnJournalState, UsnReadEnd,
-    RandomReadSource, WmiObject, WmiSubscriptionClass, WmiSubscriptionSource,
+    FirmwareSource, Host, IommuTable, Platform, ProcessRecord, ProcessSource, RandomReadSource,
+    RegistryData, RegistrySource, SignatureCheck, SignatureSource, SourceError,
+    SystemIntegritySource, TpmInfo, TpmSource, UsnJournalRead, UsnJournalSource, UsnJournalState,
+    UsnReadEnd, WmiObject, WmiSubscriptionClass, WmiSubscriptionSource,
 };
 
 /// Why a fixture host could not be loaded.
@@ -1870,7 +1870,12 @@ impl RandomReadSource for FixtureHost {
         }
     }
 
-    fn read_volume_at(&self, volume: char, offset: u64, len: usize) -> Result<Vec<u8>, SourceError> {
+    fn read_volume_at(
+        &self,
+        volume: char,
+        offset: u64,
+        len: usize,
+    ) -> Result<Vec<u8>, SourceError> {
         self.windows_filesystem()?;
         match self.volumes.get(&volume.to_ascii_uppercase()) {
             None => Err(SourceError::Unsupported(format!(

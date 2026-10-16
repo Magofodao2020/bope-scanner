@@ -19,13 +19,12 @@ verificar**. "Avançada" = só na verificação avançada, escolhida antes de co
 | Processos em execução e processo pai | Detecta | |
 | RunMRU, TypedPaths, RecentDocs, LastVisitedPidlMRU | Investiga | Avançada. Só programas/extensões selecionadas. |
 | Amcache.hve | Detecta (nomes do catálogo, pastas do usuário) | Admin. Lido de uma **shadow copy já existente** (nenhuma é criada); sem shadow copy fica NÃO VERIFICADO. Inventário ≠ execução. Logs de transação não aplicados. |
-| **SRUM** | **Não implementado** | Banco ESE bloqueado pelo serviço; mesma razão. |
+| SRUM | Detecta (uso de CPU de programas com nome do catálogo) | Admin. Lido de uma **shadow copy já existente** com leitor ESE próprio; logs de transação não aplicados; horários por hora. CPU registrada conta como execução na correlação. |
 | USN Journal | Detecta nomes do catálogo (criação, exclusão, renomeação) e contagens por pasta | Admin. Só a unidade do sistema; o journal cita o nome, não a pasta. |
-| **$MFT / entradas excluídas da MFT** | **Não implementado** | Exige leitura bruta do volume e parser NTFS completo. |
+| $MFT (metadados, inclusive registros liberados) | Detecta (Avançada) | Admin, leitura bruta somente leitura de `\\.\C:`. Nomes do catálogo, caminho, horários SI/FN, em uso ou liberado. **Conteúdo nunca é recuperado.** Só a unidade do sistema. |
 | Atalhos (.lnk) | Detecta (destino com nome do catálogo; destino ausente hoje) | Área de Trabalho, Menu Iniciar, barra de tarefas, Recentes. |
 | Lixeira (`$I`) | Detecta (nomes do catálogo, local original, data de exclusão) | Só a conta que roda a verificação; esvaziar remove. |
-| **SRUM** | **Não implementado** | Banco ESE bloqueado; mesma restrição do Amcache, sem parser ESE. |
-| **ShellBags, OpenSavePidlMRU** | **Não implementado** | Exige parser de shell items; previsto. |
+| ShellBags, OpenSavePidlMRU | Investiga (Avançada) | Só caminhos com nome do catálogo ou do Roblox; abrir pasta ≠ execução; horários do item, não da abertura. |
 | **Histórico de downloads do navegador** | **Não lido** (privacidade) | Substituído pelo Mark of the Web dos arquivos baixados (verificação avançada). |
 | **Criação de shadow copy / VSS ativo** | **Não implementado, por decisão** | Criar snapshot altera o sistema; só snapshots existentes são lidos. |
 | **Linhas de comando completas** | **Não coletado** (por privacidade) | Só o programa. |
@@ -38,8 +37,8 @@ verificar**. "Avançada" = só na verificação avançada, escolhida antes de co
 | ClientAppSettings (FFlags) — só nomes e contagem | Investiga (bootstrappers legítimos editam) |
 | Bootstrappers de terceiros | Investiga (INFO) |
 | Player em execução: módulos fora do Windows/Roblox, memória executável privada/mapeada, pai | Detecta, se o Hyperion permitir abrir o processo |
-| Estrutura de executor (`autoexec` + `workspace`), também dentro de `.zip` | Detecta (FLAG / WARN) |
-| Catálogo de ferramentas (Bloxstrap, forks, FFlagManager e variantes, FPS unlocker, executores, injetores) em arquivos, pastas, .zip, Lixeira, atalhos, Amcache, USN, Prefetch, BAM, UserAssist, ShimCache, MuiCache, FeatureUsage, PCA, programas instalados e processos | Correlaciona (`roblox_trace`): INFO / SUSPEITO / DETECTADO / CORROBORADO por ferramenta, com famílias de fontes independentes |
+| Estrutura de executor (`autoexec` + `workspace`), também dentro de `.zip`, `.rar` e `.7z` (só o índice) | Detecta (FLAG / WARN) |
+| Catálogo de ferramentas (Bloxstrap, forks, FFlagManager e variantes, FPS unlocker, executores, injetores) em arquivos, pastas, .zip/.rar/.7z, Lixeira, atalhos, Amcache, SRUM, MFT, ShellBags, WMI, USN, Prefetch, BAM, UserAssist, ShimCache, MuiCache, FeatureUsage, PCA, programas instalados e processos | Correlaciona (`roblox_trace`): INFO / SUSPEITO / DETECTADO / CORROBORADO por ferramenta, com famílias de fontes independentes |
 | FastFlags (`ClientAppSettings.json` em uso, cópias de launchers, backups de ferramentas) | Detecta flags de rede/física no arquivo em uso (WARN); conta o resto (INFO) |
 | Scripts com APIs exclusivas de executor | Detecta (FLAG), sem guardar o texto |
 | Conteúdo da memória do Roblox, hooks internos, scripts injetados | **Não verifica** — ler memória do jogo conflitaria com o Hyperion e com o modo somente leitura |
@@ -53,7 +52,7 @@ verificar**. "Avançada" = só na verificação avançada, escolhida antes de co
 | IFEO, SilentProcessExit, AppInit/AppCert DLLs, Winlogon | Detecta |
 | Drivers carregados, assinaturas, Code Integrity, lista de drivers vulneráveis | Detecta |
 | Modo de teste, HVCI, Secure Boot, TPM, tipo de firmware | Detecta/Investiga |
-| **Assinaturas WMI permanentes** | **Não implementado** (exige WMI; ADR 0011) |
+| Assinaturas WMI permanentes | Detecta (consumidores de linha de comando/script; nomes do catálogo) — via `ExecQuery`, somente leitura; nunca guarda texto de scripts (ADR 0127) |
 | **Extensões de shell** | Parcial (via autostart/serviços) |
 
 ## Dispositivos
@@ -90,3 +89,12 @@ verificar**. "Avançada" = só na verificação avançada, escolhida antes de co
 - Toda conclusão vale **só para as fontes examinadas**. "Sem evidências suspeitas" não é "limpo".
 - Nenhum nome de cheat, hash ou data foi inventado: regras usam estrutura, comportamento e fontes
   reais; nomes públicos só rotulam algo que já correspondeu por estrutura.
+
+## Exportação e validação (0.10.0)
+
+| Área | Estado |
+|---|---|
+| Relatórios HTML, TXT, JSON | Implementado, cada um com SHA-256 |
+| Relatório PDF | Implementado sem dependências (PDF 1.4, fontes padrão, WinAnsi); inclui o SHA-256 do JSON equivalente. Caracteres fora do Windows-1252 saem como `?` |
+| Testes em Windows 10/11 real | **Não executados nesta entrega** — procedimento e script em [validacao-windows.md](validacao-windows.md) |
+| Fontes novas (SRUM, MFT, WMI, ShellBags) | Testadas com dados sintéticos; **validação em hardware real pendente** |

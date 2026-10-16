@@ -158,9 +158,10 @@ impl Collector for Srum {
                 } else {
                     Err(other.err())
                 };
-                match live_read {
-                    Ok(parsed) => (parsed, "live", None),
-                    Err(_) => {
+                if let Ok(parsed) = live_read {
+                    (parsed, "live", None)
+                } else {
+                    {
                         let inside = root.get(3..).map(|r| format!(r"{r}\{RELATIVE}"));
                         let shadow = inside.as_deref().and_then(|i| newest_shadow(host, i));
                         let Some((n, path)) = shadow else {
@@ -200,9 +201,8 @@ impl Collector for Srum {
             let found = catalog::match_name(file).into_iter().next();
             let kind = location::classify_any(name_or_path);
             let roblox_context = catalog::path_mentions_roblox(name_or_path);
-            let keep = found.is_some()
-                || roblox_context
-                || (app.id_type == 0 && kind.is_user_writable());
+            let keep =
+                found.is_some() || roblox_context || (app.id_type == 0 && kind.is_user_writable());
             if !keep {
                 continue;
             }
@@ -282,7 +282,11 @@ mod tests {
                     0,
                     r"\Device\HarddiskVolume3\Users\a\AppData\Local\Solara\Solara.exe",
                 ),
-                (2, 0, r"\Device\HarddiskVolume3\Windows\System32\svchost.exe"),
+                (
+                    2,
+                    0,
+                    r"\Device\HarddiskVolume3\Windows\System32\svchost.exe",
+                ),
                 (3, 1, "wuauserv"),
             ],
             &[(1, 46_000.5, 900), (2, 46_000.5, 5)],
@@ -321,19 +325,29 @@ mod tests {
         assert_eq!(solara.fields["foreground_cycles"], 900);
         assert_eq!(solara.fields["location_kind"], "appdata_local");
         assert_eq!(solara.fields["first_seen"], "2025-12-09T12:00:00Z");
-        assert_eq!(all.len(), 2, "svchost and the service are counted, not listed");
+        assert_eq!(
+            all.len(),
+            2,
+            "svchost and the service are counted, not listed"
+        );
     }
 
     #[test]
     fn no_shadow_copy_is_absent_or_not_admin_and_garbage_is_read_failed() {
-        assert_eq!(run("", true), unmeasured(ID, UnmeasuredReason::SourceAbsent));
+        assert_eq!(
+            run("", true),
+            unmeasured(ID, UnmeasuredReason::SourceAbsent)
+        );
         assert_eq!(run("", false), unmeasured(ID, UnmeasuredReason::NotAdmin));
         assert_eq!(
             Srum.collect(&NonWindowsHost),
             unmeasured(ID, UnmeasuredReason::NotWindows)
         );
         let tail = "  '\\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy1\\Windows\\System32\\sru':\n    - { name: SRUDB.dat, content: 'not a database' }\n";
-        assert_eq!(run(tail, true), unmeasured(ID, UnmeasuredReason::ReadFailed));
+        assert_eq!(
+            run(tail, true),
+            unmeasured(ID, UnmeasuredReason::ReadFailed)
+        );
     }
 
     #[test]

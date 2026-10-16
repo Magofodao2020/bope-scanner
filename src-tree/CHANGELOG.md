@@ -5,6 +5,45 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [B.O.P.E 0.10.0] - 2026-10-16
+
+Based on the B.O.P.E Scanner 0.9.0 source. Four new forensic sources, `.rar`/`.7z` indexes, PDF export
+and complete Portuguese rule texts. Everything is read-only; none of it was run on a real Windows PC
+during development (see `docs/bope/validacao-windows.md`).
+
+### Added
+- Host: `RandomReadSource` (read a file or a raw volume at an offset, 1 MiB per call, every share mode,
+  read-only) and `WmiSubscriptionSource` (WMI `ExecQuery` only), with fixture support (`volumes:`,
+  `wmi:`) (ADR 0124, ADR 0127).
+- `srum` collector and a bounded, pure-Rust ESE reader (`bope_parsers::ese`, `bope_parsers::srum`):
+  SRUDB.dat from an existing shadow copy; CPU time, timeline duration and network totals per program;
+  user SIDs never read (ADR 0124).
+- `mft` collector (full scan) and NTFS parser (`bope_parsers::ntfs`): catalog names in `$MFT` records,
+  in use or freed, with path, SI/FN times and `si_created_before_fn`; content never read (ADR 0125).
+- `shellbags` collector (full scan) and shell item parser (`bope_parsers::shell_items`): ShellBags and
+  OpenSavePidlMRU paths matching the catalog or naming Roblox (ADR 0126).
+- `wmi_subscription` collector: permanent WMI filters, consumers and bindings; program hash and
+  signature; script text never kept (ADR 0127).
+- `.rar` (RAR 4/5) and `.7z` names in `roblox_files`, from headers only, with `lzma-rs` for encoded 7z
+  headers and decompression-bomb limits; encrypted headers reported (ADR 0128).
+- Native PDF export (`bope_core::pdf`, `export::Format::Pdf`) in the CLI and the desktop app (ADR 0129).
+- `roblox_trace`: sources `srum` (class `resource_usage`, counted as execution), `mft` (freed record =
+  `deleted`; in-use record shares the folder listing's family), `shellbags` (`reference`) and
+  `wmi_subscription` (`persistence`).
+- Nine rules (SRUM, MFT, ShellBags, Open/Save dialog, two WMI, encrypted archive headers, two timeline
+  selectors) with fixtures and Portuguese texts; baseline and end-to-end fixtures extended; synthetic
+  fixture generator `cargo run -p bope-parsers --example synthetic_fixtures`.
+- `docs/bope/validacao-windows.md` and `scripts/validate-windows.ps1`: a reproducible Windows 10/11
+  validation procedure and checklist.
+
+### Changed
+- Portuguese (pt-BR) description, retention and false positives for the 71 inherited rules that had
+  only a translated title.
+- Consent texts (CLI, desktop, PRIVACY.md) name the new sources; manual guide section 7A.
+- Fixed `clippy::chunks_exact_to_as_chunks` warnings that Rust 1.98.1's clippy reports on the 0.9.0
+  source.
+
+
 ### B.O.P.E Scanner (modified version of aeterna-rongroi 0.9.0)
 - Renamed crates, binaries, window and releases to B.O.P.E Scanner; NOTICE, SPDX headers and
   `UNOFFICIAL BUILD` kept; upstream README moved to `docs/upstream/` (ADR 0100).

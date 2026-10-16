@@ -107,12 +107,15 @@ pub struct Srum {
 fn time(v: &Value) -> Option<jiff::Timestamp> {
     match v {
         Value::OleDate(d) => ese::ole_date(*d),
-        Value::Int(ft) => u64::try_from(*ft).ok().and_then(crate::filetime::to_timestamp),
+        Value::Int(ft) => u64::try_from(*ft)
+            .ok()
+            .and_then(crate::filetime::to_timestamp),
         _ => None,
     }
 }
 
 /// Reads `SRUDB.dat` through `read`, a callback returning the bytes at an offset.
+#[allow(clippy::too_many_lines)]
 pub fn read<R: FnMut(u64, usize) -> Option<Vec<u8>>>(
     read: R,
     limits: Limits,
@@ -135,7 +138,11 @@ pub fn read<R: FnMut(u64, usize) -> Option<Vec<u8>>>(
     let mut names_not_read = 0;
     let mut apps: BTreeMap<i64, App> = BTreeMap::new();
     let walk = db.records(map, &mut |r| {
-        let Some(id_type) = r.named("IdType").as_u64().and_then(|v| u8::try_from(v).ok()) else {
+        let Some(id_type) = r
+            .named("IdType")
+            .as_u64()
+            .and_then(|v| u8::try_from(v).ok())
+        else {
             return true;
         };
         if id_type > 2 {
@@ -197,8 +204,12 @@ pub fn read<R: FnMut(u64, usize) -> Option<Vec<u8>>>(
             match kind {
                 0 => {
                     app.usage_rows += 1;
-                    app.foreground_cycles = app.foreground_cycles.saturating_add(n("ForegroundCycleTime"));
-                    app.background_cycles = app.background_cycles.saturating_add(n("BackgroundCycleTime"));
+                    app.foreground_cycles = app
+                        .foreground_cycles
+                        .saturating_add(n("ForegroundCycleTime"));
+                    app.background_cycles = app
+                        .background_cycles
+                        .saturating_add(n("BackgroundCycleTime"));
                 }
                 1 => {
                     app.timeline_rows += 1;
@@ -252,7 +263,10 @@ pub fn build(page_size: u32, apps: &[(i32, u8, &str)], usage: &[(i32, f64, u64)]
                 (2, Cell::Fixed(id.to_le_bytes().to_vec())),
                 (
                     256,
-                    Cell::Tagged(name.encode_utf16().flat_map(u16::to_le_bytes).collect(), 0x01),
+                    Cell::Tagged(
+                        name.encode_utf16().flat_map(u16::to_le_bytes).collect(),
+                        0x01,
+                    ),
                 ),
             ]
         })
@@ -270,7 +284,10 @@ pub fn build(page_size: u32, apps: &[(i32, u8, &str)], usage: &[(i32, f64, u64)]
         .enumerate()
         .map(|(i, (app, at, cycles))| {
             vec![
-                (1, Cell::Fixed(i32::try_from(i).unwrap_or(0).to_le_bytes().to_vec())),
+                (
+                    1,
+                    Cell::Fixed(i32::try_from(i).unwrap_or(0).to_le_bytes().to_vec()),
+                ),
                 (2, Cell::Fixed(at.to_le_bytes().to_vec())),
                 (3, Cell::Fixed(app.to_le_bytes().to_vec())),
                 (4, Cell::Fixed(1_i32.to_le_bytes().to_vec())),
@@ -305,7 +322,11 @@ mod tests {
         let file = build(
             4096,
             &[
-                (5, 0, r"\Device\HarddiskVolume3\Users\a\Downloads\Solara\Solara.exe"),
+                (
+                    5,
+                    0,
+                    r"\Device\HarddiskVolume3\Users\a\Downloads\Solara\Solara.exe",
+                ),
                 (6, 3, "S-1-5-21-not-read"),
             ],
             &[(5, 46_000.5, 100), (5, 46_001.5, 50), (7, 46_000.0, 0)],
@@ -314,7 +335,10 @@ mod tests {
         assert_eq!(srum.state, 2);
         assert_eq!(srum.rows, 3);
         let app = &srum.apps[&5];
-        assert_eq!(app.name.as_deref().unwrap(), r"\Device\HarddiskVolume3\Users\a\Downloads\Solara\Solara.exe");
+        assert_eq!(
+            app.name.as_deref().unwrap(),
+            r"\Device\HarddiskVolume3\Users\a\Downloads\Solara\Solara.exe"
+        );
         assert_eq!(app.foreground_cycles, 150);
         assert!(app.used_cpu());
         assert_eq!(app.first_seen.unwrap().to_string(), "2025-12-09T12:00:00Z");

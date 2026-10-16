@@ -39,15 +39,21 @@ pub struct Boot {
 }
 
 fn u16_at(b: &[u8], at: usize) -> Option<u16> {
-    Some(u16::from_le_bytes(b.get(at..at.checked_add(2)?)?.try_into().ok()?))
+    Some(u16::from_le_bytes(
+        b.get(at..at.checked_add(2)?)?.try_into().ok()?,
+    ))
 }
 
 fn u32_at(b: &[u8], at: usize) -> Option<u32> {
-    Some(u32::from_le_bytes(b.get(at..at.checked_add(4)?)?.try_into().ok()?))
+    Some(u32::from_le_bytes(
+        b.get(at..at.checked_add(4)?)?.try_into().ok()?,
+    ))
 }
 
 fn u64_at(b: &[u8], at: usize) -> Option<u64> {
-    Some(u64::from_le_bytes(b.get(at..at.checked_add(8)?)?.try_into().ok()?))
+    Some(u64::from_le_bytes(
+        b.get(at..at.checked_add(8)?)?.try_into().ok()?,
+    ))
 }
 
 fn malformed(field: &'static str, detail: &str) -> ParseError {
@@ -87,7 +93,9 @@ pub fn boot(bytes: &[u8]) -> Result<Boot, ParseError> {
     let record_size = if raw > 0 {
         u64::from(raw.unsigned_abs()) * cluster_size
     } else {
-        1_u64.checked_shl(u32::from(raw.unsigned_abs())).unwrap_or(0)
+        1_u64
+            .checked_shl(u32::from(raw.unsigned_abs()))
+            .unwrap_or(0)
     };
     if !(256..=65_536).contains(&record_size) {
         return Err(malformed("record_size", "file record size out of range"));
@@ -125,7 +133,10 @@ pub fn apply_fixups(record: &mut [u8], sector_size: u32) -> bool {
         if u16_at(record, end - 2) != Some(usn) {
             return false;
         }
-        let Some(fix) = record.get(offset + i * 2..offset + i * 2 + 2).map(<[u8]>::to_vec) else {
+        let Some(fix) = record
+            .get(offset + i * 2..offset + i * 2 + 2)
+            .map(<[u8]>::to_vec)
+        else {
             return false;
         };
         if let Some(slot) = record.get_mut(end - 2..end) {
@@ -182,13 +193,11 @@ pub struct FileRecord {
 impl FileRecord {
     /// The name a person would see: the Win32 one before the DOS short one.
     pub fn best_name(&self) -> Option<&FileName> {
-        self.names
-            .iter()
-            .min_by_key(|n| match n.namespace {
-                1 | 3 => 0,
-                0 => 1,
-                _ => 2,
-            })
+        self.names.iter().min_by_key(|n| match n.namespace {
+            1 | 3 => 0,
+            0 => 1,
+            _ => 2,
+        })
     }
 }
 
@@ -359,7 +368,8 @@ fn encode_record(
         let len = (24 + content.len()).div_ceil(8) * 8;
         r[at..at + 4].copy_from_slice(&kind.to_le_bytes());
         r[at + 4..at + 8].copy_from_slice(&u32::try_from(len).unwrap_or(0).to_le_bytes());
-        r[at + 16..at + 20].copy_from_slice(&u32::try_from(content.len()).unwrap_or(0).to_le_bytes());
+        r[at + 16..at + 20]
+            .copy_from_slice(&u32::try_from(content.len()).unwrap_or(0).to_le_bytes());
         r[at + 20..at + 22].copy_from_slice(&24_u16.to_le_bytes());
         r[at + 24..at + 24 + content.len()].copy_from_slice(content);
         at += len;
@@ -443,7 +453,14 @@ pub fn build_volume(records: &[BuildRecord]) -> Vec<u8> {
     };
     place(
         0,
-        encode_record(0, true, false, 0, &[(ROOT_RECORD, "$MFT", 0)], Some((BUILD_MFT_CLUSTER, mft_clusters))),
+        encode_record(
+            0,
+            true,
+            false,
+            0,
+            &[(ROOT_RECORD, "$MFT", 0)],
+            Some((BUILD_MFT_CLUSTER, mft_clusters)),
+        ),
     );
     place(
         ROOT_RECORD,

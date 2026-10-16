@@ -51,7 +51,7 @@ impl bope_host::WmiSubscriptionSource for crate::LiveHost {
 }
 
 #[cfg(windows)]
-#[allow(unsafe_code)]
+#[allow(unsafe_code, clippy::too_many_lines)]
 fn query(
     namespace: &str,
     class: WmiSubscriptionClass,
@@ -87,8 +87,9 @@ fn query(
         .map_err(|e| SourceError::Failed(format!("CoInitializeEx: 0x{:08X}", code(&e))))?;
     let _apartment = Apartment;
     // SAFETY: `WbemLocator` is the documented class id for `IWbemLocator`; no outer object.
-    let locator: IWbemLocator = unsafe { CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER) }
-        .map_err(|e| SourceError::Failed(format!("CoCreateInstance: 0x{:08X}", code(&e))))?;
+    let locator: IWbemLocator =
+        unsafe { CoCreateInstance(&WbemLocator, None, CLSCTX_INPROC_SERVER) }
+            .map_err(|e| SourceError::Failed(format!("CoCreateInstance: 0x{:08X}", code(&e))))?;
     // SAFETY: every argument is an owned `BSTR` that outlives the call; no context object.
     let services = match unsafe {
         locator.ConnectServer(
@@ -206,7 +207,9 @@ fn query(
     _class: WmiSubscriptionClass,
     _properties: &[String],
 ) -> Result<Option<Vec<WmiObject>>, SourceError> {
-    Err(SourceError::Unsupported("no WMI on this platform".to_owned()))
+    Err(SourceError::Unsupported(
+        "no WMI on this platform".to_owned(),
+    ))
 }
 
 #[cfg(test)]

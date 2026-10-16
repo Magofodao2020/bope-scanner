@@ -74,14 +74,21 @@ impl RandomReadSource for LiveHost {
         read_exact_or_end(&mut file, len).map(Some)
     }
 
-    fn read_volume_at(&self, volume: char, offset: u64, len: usize) -> Result<Vec<u8>, SourceError> {
+    fn read_volume_at(
+        &self,
+        volume: char,
+        offset: u64,
+        len: usize,
+    ) -> Result<Vec<u8>, SourceError> {
         if len > MAX_READ_AT_BYTES {
             return Err(SourceError::TooLarge {
                 limit: MAX_READ_AT_BYTES,
             });
         }
         if !volume.is_ascii_alphabetic() {
-            return Err(SourceError::Unsupported(format!("not a drive letter: {volume}")));
+            return Err(SourceError::Unsupported(format!(
+                "not a drive letter: {volume}"
+            )));
         }
         let device = format!(r"\\.\{}:", volume.to_ascii_uppercase());
         let mut file = std::fs::File::open(&device).map_err(|e| SourceError::from_io(&e))?;

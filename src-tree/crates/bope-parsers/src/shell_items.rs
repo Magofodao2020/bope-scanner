@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Part of B.O.P.E Scanner, a modified version of aeterna-rongroi. Using it to evade detection is out of scope — see AGENTS.md.
 
-//! Windows shell items and item ID lists (PIDLs), as ShellBags and the common file dialog's
+//! Windows shell items and item ID lists (`PIDLs`), as `ShellBags` and the common file dialog's
 //! `OpenSavePidlMRU` store them (B.O.P.E, ADR 0126).
 //!
 //! Decoded: root folders (by class id), volumes (`C:\`), file entries (folder or file, the short name,
@@ -68,15 +68,21 @@ pub struct FileEntry {
 }
 
 fn u16_at(b: &[u8], at: usize) -> Option<u16> {
-    Some(u16::from_le_bytes(b.get(at..at.checked_add(2)?)?.try_into().ok()?))
+    Some(u16::from_le_bytes(
+        b.get(at..at.checked_add(2)?)?.try_into().ok()?,
+    ))
 }
 
 fn u32_at(b: &[u8], at: usize) -> Option<u32> {
-    Some(u32::from_le_bytes(b.get(at..at.checked_add(4)?)?.try_into().ok()?))
+    Some(u32::from_le_bytes(
+        b.get(at..at.checked_add(4)?)?.try_into().ok()?,
+    ))
 }
 
 fn u64_at(b: &[u8], at: usize) -> Option<u64> {
-    Some(u64::from_le_bytes(b.get(at..at.checked_add(8)?)?.try_into().ok()?))
+    Some(u64::from_le_bytes(
+        b.get(at..at.checked_add(8)?)?.try_into().ok()?,
+    ))
 }
 
 /// A FAT date and time (date in the low 16 bits) as a timestamp. `None` for zero or impossible
@@ -174,13 +180,13 @@ fn file_entry(item: &[u8], class: u8) -> Option<FileEntry> {
         let version = u16_at(ext, 2).unwrap_or(0);
         entry.created = u32_at(ext, 8).and_then(fat_time);
         entry.accessed = u32_at(ext, 12).and_then(fat_time);
-        if version >= 7 {
-            if let Some(reference) = u64_at(ext, 20) {
-                let record = reference & 0x0000_FFFF_FFFF_FFFF;
-                if record != 0 {
-                    entry.mft_record = Some(record);
-                    entry.mft_sequence = u16::try_from(reference >> 48).ok();
-                }
+        if version >= 7
+            && let Some(reference) = u64_at(ext, 20)
+        {
+            let record = reference & 0x0000_FFFF_FFFF_FFFF;
+            if record != 0 {
+                entry.mft_record = Some(record);
+                entry.mft_sequence = u16::try_from(reference >> 48).ok();
             }
         }
         let long_at = match version {
@@ -218,8 +224,9 @@ pub fn item(item_with_size: &[u8]) -> ShellItem {
         0x20..=0x2F => ShellItem::Volume {
             name: ascii_z(item_with_size.get(3..).unwrap_or_default()),
         },
-        0x30..=0x3F => file_entry(item_with_size, class)
-            .map_or(ShellItem::Other { class }, ShellItem::File),
+        0x30..=0x3F => {
+            file_entry(item_with_size, class).map_or(ShellItem::Other { class }, ShellItem::File)
+        }
         0x41..=0x4F => ShellItem::Network {
             location: ascii_z(item_with_size.get(5..).unwrap_or_default()),
         },
@@ -327,7 +334,8 @@ pub fn build_folder(name: &str, fat: u32, mft_record: u64) -> Vec<u8> {
 pub fn build_my_computer() -> Vec<u8> {
     let mut b = vec![20_u8, 0, 0x1F, 0x50];
     b.extend_from_slice(&[
-        0xE0, 0x4F, 0xD0, 0x20, 0xEA, 0x3A, 0x69, 0x10, 0xA2, 0xD8, 0x08, 0x00, 0x2B, 0x30, 0x30, 0x9D,
+        0xE0, 0x4F, 0xD0, 0x20, 0xEA, 0x3A, 0x69, 0x10, 0xA2, 0xD8, 0x08, 0x00, 0x2B, 0x30, 0x30,
+        0x9D,
     ]);
     b
 }
@@ -363,13 +371,10 @@ mod tests {
     fn a_root_class_id_is_labelled_and_garbage_is_an_error_or_other() {
         let mut users = vec![20_u8, 0, 0x1F, 0];
         users.extend_from_slice(&[
-            0x47, 0x1A, 0x03, 0x59, 0x72, 0x3F, 0xA7, 0x44, 0x89, 0xC5, 0x55, 0x95, 0xFE, 0x6B, 0x30,
-            0xEE,
+            0x47, 0x1A, 0x03, 0x59, 0x72, 0x3F, 0xA7, 0x44, 0x89, 0xC5, 0x55, 0x95, 0xFE, 0x6B,
+            0x30, 0xEE,
         ]);
-        assert_eq!(
-            segment(&item(&users)).unwrap(),
-            "%USERPROFILE%"
-        );
+        assert_eq!(segment(&item(&users)).unwrap(), "%USERPROFILE%");
         assert!(list(&[50, 0, 1, 2]).is_err());
         assert!(list(&[2, 0]).is_err());
         assert_eq!(item(&[4, 0, 0x99, 0]), ShellItem::Other { class: 0x99 });

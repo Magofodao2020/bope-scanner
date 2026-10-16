@@ -31,7 +31,8 @@ Standard scan:
 
 - **Roblox tool names on disk** (ADR 0118): in AppData, Temp, ProgramData, Program Files, Downloads,
   Desktop and Documents, only the names that match the Roblox tool catalog, with size, times, and for
-  programs SHA-256 and signature; the names inside `.zip` archives there (nothing extracted); and items
+  programs SHA-256 and signature; the names inside `.zip`, `.rar` and `.7z` archives there, read from
+  their headers only (nothing extracted; ADR 0128); and items
   in this account's Recycle Bin whose original name matches, with original path and deletion time.
   Names that do not match are compared and dropped.
 - **Shortcuts** (ADR 0119): `.lnk` files on the Desktop, Start menu, taskbar and Recent that point at a
@@ -40,6 +41,14 @@ Standard scan:
 - **Amcache** (ADR 0120), from an existing shadow copy only (none is created): inventory rows for Roblox
   tools, Roblox paths and programs in your own folders (path, SHA-1, publisher, version, time written).
   Other programs are counted, not listed.
+- **SRUM** (ADR 0124), from an existing shadow copy only (none is created): for programs matching the
+  Roblox tool catalog, naming Roblox or in your own folders, their path, the CPU time and network byte
+  totals Windows recorded per hour, and the first and last hour. User SIDs, network interfaces and
+  network profile names are never read.
+- **Permanent WMI event subscriptions** (ADR 0127): names and queries of event filters, consumer
+  classes and names, the program a consumer starts (never its arguments) with SHA-256 and signature, a
+  script consumer's engine and script file, and for an inline script only its length, SHA-256 and the
+  program/script file names it mentions — never the script's text.
 - **Change journal names** (ADR 0121): names of files matching the Roblox tool catalog, with counts of
   creations, deletions and renames and first/last times. Every other name is dropped after comparison.
 - **FastFlag files** (ADR 0122): size, times, SHA-256, counts of flags by kind and the names of
@@ -55,6 +64,15 @@ Advanced scan only (chosen on the start screen before anything is read):
   host only if the person ticks that option; full download URLs never.
 - **Explorer recent lists**: RunMRU program names (no arguments), typed folder paths, recent documents
   of a fixed set of extensions, last-visited program names.
+- **Master File Table** (ADR 0125): the system volume is read raw and read-only; every file record's
+  name passes through memory once and only names matching the Roblox tool catalog are kept, with folder
+  path, NTFS times, size and whether the record is in use or freed. No file content is read.
+- **ShellBags and OpenSavePidlMRU** (ADR 0126): folder and dialog paths Explorer remembers, kept only
+  when a segment matches the Roblox tool catalog or names Roblox; every other path is dropped after
+  comparison.
+
+Saved reports may be HTML, TXT, JSON or PDF (ADR 0129); the PDF carries the SHA-256 of the JSON export
+of the same view.
 
 Saved reports go only to the folder the person picks; screenshare-mode reports hide the user name as
 the screen does. Nothing is uploaded.

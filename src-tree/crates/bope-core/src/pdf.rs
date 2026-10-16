@@ -160,7 +160,11 @@ pub struct Info {
 }
 
 fn pdf_date(rfc3339: &str) -> String {
-    let digits: String = rfc3339.chars().filter(char::is_ascii_digit).take(14).collect();
+    let digits: String = rfc3339
+        .chars()
+        .filter(char::is_ascii_digit)
+        .take(14)
+        .collect();
     format!("D:{digits}Z")
 }
 
@@ -201,7 +205,10 @@ pub fn render(info: &Info, lines: &[Line]) -> Vec<u8> {
         "<< /Type /Pages /Kids [{}] /Count {total} >>",
         kids.join(" ")
     ));
-    objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>".to_owned());
+    objects.push(
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>"
+            .to_owned(),
+    );
     objects.push(
         "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"
             .to_owned(),
@@ -217,7 +224,11 @@ pub fn render(info: &Info, lines: &[Line]) -> Vec<u8> {
         let mut content = String::new();
         let mut y = PAGE_H - MARGIN;
         for (heading, text) in *page {
-            let (font, size) = if *heading { ("F2", 10.0) } else { ("F1", BODY_SIZE) };
+            let (font, size) = if *heading {
+                ("F2", 10.0)
+            } else {
+                ("F1", BODY_SIZE)
+            };
             let _ = writeln!(
                 content,
                 "BT /{font} {size:.1} Tf {MARGIN:.1} {y:.1} Td {} Tj ET",
@@ -252,7 +263,7 @@ pub fn render(info: &Info, lines: &[Line]) -> Vec<u8> {
     let xref = out.len();
     let mut table = format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1);
     for o in offsets {
-        let _ = write!(table, "{o:010} 00000 n \n");
+        let _ = writeln!(table, "{o:010} 00000 n ");
     }
     let _ = write!(
         table,
@@ -278,7 +289,9 @@ mod tests {
 
     #[test]
     fn a_document_has_a_valid_cross_reference_table_and_every_page() {
-        let lines: Vec<Line> = (0..200).map(|i| Line::Text(format!("linha {i} — ação"))).collect();
+        let lines: Vec<Line> = (0..200)
+            .map(|i| Line::Text(format!("linha {i} — ação")))
+            .collect();
         let pdf = render(&info(), &lines);
         let text = String::from_utf8_lossy(&pdf);
         assert!(pdf.starts_with(b"%PDF-1.4\n"));
@@ -296,12 +309,21 @@ mod tests {
             .unwrap();
         assert!(pdf[start..].starts_with(b"xref"));
         let table = &text[start..];
-        for (i, line) in table.lines().skip(3).take_while(|l| l.ends_with(" n ")).enumerate() {
+        for (i, line) in table
+            .lines()
+            .skip(3)
+            .take_while(|l| l.ends_with(" n "))
+            .enumerate()
+        {
             let offset: usize = line[..10].parse().unwrap();
             assert!(pdf[offset..].starts_with(format!("{} 0 obj", i + 1).as_bytes()));
         }
         assert!(text.contains("CreationDate (D:20261015120000Z)"));
-        assert_eq!(pdf, render(&info(), &lines), "the same lines give the same bytes");
+        assert_eq!(
+            pdf,
+            render(&info(), &lines),
+            "the same lines give the same bytes"
+        );
     }
 
     #[test]
@@ -321,6 +343,10 @@ mod tests {
         assert!(lines.iter().all(|l| l.chars().count() <= 40));
         assert!(lines[1].starts_with("      "));
         assert_eq!(wrap("curta", 40), vec!["curta".to_owned()]);
-        assert!(wrap(&"x".repeat(100), 40).iter().all(|l| l.chars().count() <= 40));
+        assert!(
+            wrap(&"x".repeat(100), 40)
+                .iter()
+                .all(|l| l.chars().count() <= 40)
+        );
     }
 }
