@@ -24,8 +24,8 @@ export function ReportSummary({ listed, filter, onFilter }: Props) {
     ["unmeasured", listed.unmeasured],
   ];
   return (
-    <section className="summary" aria-labelledby="summary-title">
-      <h2 id="summary-title">{t("summary.title")}</h2>
+    <section className="summary panel" aria-labelledby="summary-title">
+      <h3 id="summary-title">{t("summary.title")}</h3>
       <div className="tally">
         {items.map(([state, count]) => (
           <button

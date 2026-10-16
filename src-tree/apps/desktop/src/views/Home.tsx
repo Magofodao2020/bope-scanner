@@ -53,7 +53,7 @@ export function Home({ info, infoFailed, onStart }: Props) {
   const categories = CATEGORY_ORDER;
 
   return (
-    <section className="home" aria-labelledby="home-title">
+    <section className="home page-stack" aria-labelledby="home-title">
       <div className="home-lead">
         <h2 id="home-title">{t("home.title")}</h2>
         <p>{t("home.purpose")}</p>
@@ -94,7 +94,7 @@ export function Home({ info, infoFailed, onStart }: Props) {
       {infoFailed && <p className="note">{t("home.info_failed")}</p>}
 
       {info?.elevated === false && (
-        <div className="elevate">
+        <div className="elevate note">
           <p>{t("home.elevate_hint")}</p>
           <button type="button" onClick={() => void relaunchElevated().then(setElevation)}>
             {t("home.elevate_button")}
@@ -154,7 +154,7 @@ export function Home({ info, infoFailed, onStart }: Props) {
         </label>
       </fieldset>
 
-      <section className="consent-box" aria-labelledby="consent-title">
+      <section className="consent-box panel" aria-labelledby="consent-title">
         <h3 id="consent-title">{t("home.consent_title")}</h3>
         <p>{t("home.reads_intro")}</p>
         <ul className="reads">

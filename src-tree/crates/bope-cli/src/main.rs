@@ -218,7 +218,10 @@ fn export_reports(
     for name in &args.export_format {
         let format = Format::parse(name)
             .with_context(|| format!("unknown export format `{name}` (json, html, txt, pdf)"))?;
-        let exported = export::export(view, bundle, args.lang.code(), format);
+        // The zone this PC uses, as the desktop window shows it; UTC only when it has no name.
+        let zone = jiff::tz::TimeZone::system().iana_name().map(str::to_owned);
+        let exported =
+            export::export_in_zone(view, bundle, args.lang.code(), format, zone.as_deref());
         let file_name = format!("{stem}.{}", exported.extension);
         let path = dir.join(&file_name);
         std::fs::write(&path, &exported.bytes)

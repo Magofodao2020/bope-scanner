@@ -7,11 +7,13 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import i18n, { initI18n } from "./i18n";
+import { showTime } from "./time";
 import type { ReportHeader, ReportView, RuleText, UnmeasuredReason } from "./types";
+import { timeLine } from "./ui/TimeValue";
 import { COPIED_FOR_MS } from "./views/CodeLink";
 
 // Vitest runs with apps/desktop as the working directory.
@@ -166,6 +168,12 @@ function mockIPCAnswer(cmd: string, args: unknown): unknown {
       }
       case "rule_meta":
         return {};
+      case "time_fields":
+        return {
+          prefetch: ["last_run"],
+          windows_service: ["collected_at", "event_at", "log_first", "log_last"],
+          recycle_bin: ["deleted_at", "content_modified", "index_created"],
+        };
       case "start_scan":
         startedTier = payload.tier;
         return true;
@@ -192,6 +200,8 @@ function mockIPCAnswer(cmd: string, args: unknown): unknown {
           started_at: "2026-10-15T12:00:00Z",
           message: null,
           tier: "standard",
+          current: scanState === "running" ? "posture" : null,
+          cancel_requested: false,
         };
       case "default_export_dir":
         return "C:\\Users\\x\\Documents\\B.O.P.E Scanner";
@@ -235,9 +245,35 @@ async function openReport(mode: "self" | "ss", tier: "standard" | "full" = "stan
   fireEvent.click(screen.getByText("Start the check"));
 }
 
-/** Opens a closed row by clicking its title. */
-function openRow(title: string) {
-  fireEvent.click(screen.getByText(title));
+/** The side navigation's button for `page`, whatever the language. */
+function nav(page: string): HTMLButtonElement {
+  const button = document.querySelector<HTMLButtonElement>(`[data-page="${page}"]`);
+  if (!button) {
+    throw new Error(`no navigation entry ${page}`);
+  }
+  return button;
+}
+
+/** Opens `page` once the report it shows exists. */
+async function goTo(page: string) {
+  await waitFor(() => expect(nav(page).disabled).toBe(false));
+  fireEvent.click(nav(page));
+}
+
+/** Goes through the scan to the report and opens `page` of it. */
+async function openPage(mode: "self" | "ss", page: string, tier: "standard" | "full" = "standard") {
+  await openReport(mode, tier);
+  await screen.findByRole("region", { name: /What this scan lists|สิ่งที่การสแกนนี้แสดง/ });
+  await goTo(page);
+}
+
+/** `iso` as the window shows it first, in the zone the tests run in. */
+function shown(iso: string): string {
+  const time = showTime(iso, "America/Sao_Paulo");
+  if (!time) {
+    throw new Error(`not a time: ${iso}`);
+  }
+  return timeLine(time, "local");
 }
 
 function stubClipboard(result: "ok" | "refused") {
@@ -255,6 +291,9 @@ function stubClipboard(result: "ok" | "refused") {
   });
 }
 
+const TITLE = "Secure Boot is turned off";
+const THAI_TITLE = "Secure Boot ถูกปิดอยู่";
+
 describe("App", () => {
   it("snapshots are the Rust pipeline output", () => {
     expect(selfView.mode).toBe("self");
@@ -262,12 +301,30 @@ describe("App", () => {
     expect(subject(selfView).rule_id).toBe(RULE_ID);
   });
 
-  it("announces an unofficial build on the start screen", async () => {
+  // B.O.P.E, ADR 0132: no banner across the window; the indication NOTICE section 7(c) asks for stays
+  // in About and in the report's own facts.
+  it("shows no UNOFFICIAL BUILD banner, and keeps the indication in About and the report facts", async () => {
     render(<App />);
-    expect(await screen.findByRole("alert")).toHaveProperty(
-      "textContent",
-      expect.stringContaining("UNOFFICIAL BUILD"),
-    );
+    expect(await screen.findByText(selfView.header.provenance.version)).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/UNOFFICIAL BUILD/)).toBeNull();
+    fireEvent.click(nav("settings"));
+    expect((await screen.findAllByText("UNOFFICIAL BUILD")).length).toBeGreaterThan(0);
+    fireEvent.click(nav("scanner"));
+    await openReport("self");
+    expect(await screen.findByText("UNOFFICIAL BUILD")).toBeTruthy();
+  });
+
+  it("keeps every result page closed until a report exists", async () => {
+    render(<App />);
+    await screen.findByText("What will be examined");
+    for (const page of ["overview", "evidence", "services", "recycle", "timeline", "reports"]) {
+      expect(nav(page).disabled).toBe(true);
+    }
+    expect(nav("scanner").disabled).toBe(false);
+    expect(nav("settings").disabled).toBe(false);
+    await openReport("self");
+    await waitFor(() => expect(nav("evidence").disabled).toBe(false));
   });
 
   // B.O.P.E, ADR 0123: the Roblox tool correlation has its own panel, with each tool's status, the
@@ -322,33 +379,34 @@ describe("App", () => {
       },
     };
     render(<App />);
-    await openReport("ss");
-    expect(await screen.findByText("Roblox tools")).toBeTruthy();
-    expect(screen.getByText("CORROBORATED")).toBeTruthy();
+    await openPage("ss", "evidence");
+    expect(await screen.findByRole("heading", { name: "Roblox tools" })).toBeTruthy();
+    // A status is its word and its shape, never a colour alone.
+    const corroborated = screen.getByText("CORROBORATED");
+    expect(corroborated.querySelector("svg")).toBeTruthy();
     expect(screen.getByText("Fluxus")).toBeTruthy();
     expect(screen.getByText("Bloxstrap")).toBeTruthy();
     expect(screen.getByText("commonly used legitimately ·")).toBeTruthy();
     expect(screen.getByText("execution recorded; inventory (not proof of execution)")).toBeTruthy();
+    // Times are shown once converted, in the zone, with the value received kept on the element.
+    expect(screen.getAllByText(shown("2026-10-14T20:01:00Z")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByText("Show the 1 traces"));
     expect(screen.getByText(/not at this path today/)).toBeTruthy();
+    expect(document.querySelector('time[datetime="2026-10-14T20:02:00Z"]')).toBeTruthy();
     expect(screen.getByText("Sources the correlation could use")).toBeTruthy();
     expect(screen.getByText("(not_admin)")).toBeTruthy();
-    // B.O.P.E 0.10.0: the new sources are named, and one a standard scan does not read says so.
     expect(screen.getAllByText(/SRUM/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Master File Table/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/WMI/).length).toBeGreaterThan(0);
     expect(screen.getByText("(not_consented)")).toBeTruthy();
   });
 
-  // ADR 0051: the SS view shows its timeline, with what it never says above it, and the scan's own
-  // time as an anchor.
   // ADR 0061: the SS view shows how far back each source reaches, beside the anchors; a source not
-  // read without administrator rights is "not known", never "empty"; the statement is shown with
-  // every record's line and its ordinary causes in full.
+  // read without administrator rights is "not known", never "empty".
   it("shows the trace ages and the cross-source statement in SS mode", async () => {
     viewOverride = snapshot("trace_ages_elevated_ss_view");
     render(<App />);
-    await openReport("ss");
+    await openPage("ss", "timeline");
     expect(await screen.findByText("How far back the traces reach")).toBeTruthy();
     expect(screen.getByText(/beside when parts of this PC were set up/)).toBeTruthy();
     expect(
@@ -362,7 +420,6 @@ describe("App", () => {
       screen.getByText(/Windows removes Prefetch files itself\. \(not documented/),
     ).toBeTruthy();
     expect(screen.getByText("a clock that was changed")).toBeTruthy();
-
     expect(
       screen.getByText("FiveM on this PC, beside Windows' records of programs that ran"),
     ).toBeTruthy();
@@ -377,23 +434,16 @@ describe("App", () => {
       ),
     ).toBeTruthy();
     expect(screen.getByText(/This is not evidence of anything/)).toBeTruthy();
-    expect(
-      screen.getByText(
-        "a clock that was changed, so that times from different sources are not on the same clock",
-      ),
-    ).toBeTruthy();
   });
 
-  // ADR 0062: each edition's last session beside its own folders, in both languages, from the
-  // synthetic hosts' snapshots — the session line, each line form, the join line, the margin, the
-  // causes in full, and "not known".
+  // ADR 0062: each edition's last session beside its own folders.
   it("shows each edition's session statement in SS mode", async () => {
     const statements = snapshot(
       "session_elevated_statements",
     ) as unknown as ReportView["cross_source"];
     viewOverride = { ...snapshot("trace_ages_elevated_ss_view"), cross_source: statements };
     render(<App />);
-    await openReport("ss");
+    await openPage("ss", "timeline");
     expect(
       await screen.findByText("FiveM for GTA V Legacy: its last session, beside its own folders"),
     ).toBeTruthy();
@@ -405,24 +455,12 @@ describe("App", () => {
     expect(screen.getByText("last written 36 hours before the session began")).toBeTruthy();
     expect(screen.getByText("Resource cache index (priv)")).toBeTruthy();
     expect(screen.getByText("not read: the folder could not be listed")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "last created 1 minute after the session began; the folder's latest log write was 40 minutes before the session ended",
-      ),
-    ).toBeTruthy();
-    // The per-server cache is not compared (owner decision 12 of 2026-10-02).
-    expect(screen.queryByText("(written when a server is joined)")).toBeNull();
     expect(screen.queryByText("Server cache")).toBeNull();
     expect(
       screen.getAllByText(
         "A time more than 10 minutes before the session began is shown as before it; any later time as after it.",
       ),
     ).toHaveLength(2);
-    expect(
-      screen.getByText(
-        "FiveM ended by Task Manager, a crash or a shutdown, which may skip the write it makes when it closes",
-      ),
-    ).toBeTruthy();
   });
 
   it("says when FiveM last ran is not known, in Thai", async () => {
@@ -432,7 +470,7 @@ describe("App", () => {
     viewOverride = { ...snapshot("trace_ages_elevated_ss_view"), cross_source: statements };
     await i18n.changeLanguage("th");
     render(<App />);
-    await openReport("self");
+    await openPage("self", "timeline");
     expect(
       await screen.findByText("ยังรันอยู่ตั้งแต่ 2025-12-31T23:40:00Z (process ที่กำลังรัน, FiveM.exe)"),
     ).toBeTruthy();
@@ -461,19 +499,24 @@ describe("App", () => {
     };
     await i18n.changeLanguage("th");
     render(<App />);
-    await openReport("self");
+    await openPage("self", "timeline");
     expect(await screen.findByText("ร่องรอยย้อนกลับไปได้ไกลแค่ไหน")).toBeTruthy();
     expect(screen.getByText("อ่านไม่ได้เพราะไม่มีสิทธิ์ผู้ดูแลระบบ — ไม่รู้")).toBeTruthy();
-    expect(screen.queryByText("FiveM ในเครื่องนี้ เทียบกับบันทึกของ Windows ว่าโปรแกรมใดเคยรัน")).toBeNull();
   });
 
-  it("shows the timeline in SS mode with its note and the scan time", async () => {
+  it("shows the timeline in SS mode with its note and the scan time, converted once", async () => {
     render(<App />);
-    await openReport("ss");
-    expect(await screen.findByText("Timeline")).toBeTruthy();
-    expect(screen.getByText(/An order of recorded times is not an order of events/)).toBeTruthy();
+    await openPage("ss", "timeline");
+    expect(
+      await screen.findByText(/An order of recorded times is not an order of events/),
+    ).toBeTruthy();
     expect(screen.getByText("This scan ran")).toBeTruthy();
-    expect(screen.getByText(ssView.header.generated_at)).toBeTruthy();
+    const at = ssView.header.generated_at;
+    const element = document.querySelector(`.timeline-list time[datetime="${at}"]`);
+    expect(element?.textContent).toBe(shown(at));
+    // UTC is the second reading, never a second conversion of the first.
+    const utc = showTime(at, "America/Sao_Paulo")?.utc;
+    expect(screen.getAllByText(`${utc} UTC`).length).toBeGreaterThan(0);
   });
 
   it("names the selector behind a selected time and its ordinary causes", async () => {
@@ -505,7 +548,7 @@ describe("App", () => {
       },
     };
     render(<App />);
-    await openReport("ss");
+    await openPage("ss", "timeline");
     expect(await screen.findByText(/Windows Prefetch · FIVEM\.EXE/)).toBeTruthy();
     expect(
       screen.getAllByText(/When Prefetch recorded a program named like FiveM or GTA V/).length,
@@ -516,6 +559,57 @@ describe("App", () => {
         "NTFS change journal: not measured — Windows would not show this without administrator rights",
       ),
     ).toBeTruthy();
+    // Prefetch keeps a last run, not every run: the time is labelled and marked approximate.
+    expect(screen.getAllByText("Execution").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("approximate").length).toBeGreaterThan(0);
+  });
+
+  // B.O.P.E, ADR 0132: the timeline orders the same input the same way every time, keeps two
+  // entries of the same second apart, and its filters remove only what they name.
+  it("orders the timeline deterministically and filters it by kind, certainty and date", async () => {
+    const entry = (at: string, collector: string, field: string, subject: string) => ({
+      at,
+      collector,
+      field,
+      place: null,
+      subject,
+      source: { kind: "observation" as const },
+    });
+    viewOverride = {
+      ...selfView,
+      timeline: {
+        entries: [
+          entry("2026-10-10T12:00:00Z", "recycle_bin", "deleted_at", "b.txt"),
+          entry("2026-10-10T12:00:00Z", "prefetch", "last_run", "A.EXE"),
+          entry("2026-10-01T03:00:00Z", "roblox_files", "modified", "c.zip"),
+          entry("2026-10-10T12:00:00Z", "prefetch", "last_run", "A.EXE"),
+        ],
+        bands: [],
+        unmeasured: [],
+      },
+    };
+    render(<App />);
+    await openPage("self", "timeline");
+    await screen.findByText("Times: 4");
+    const subjects = () =>
+      Array.from(document.querySelectorAll(".timeline-item")).map((li) => li.textContent ?? "");
+    const first = subjects();
+    expect(first[0]).toContain("c.zip");
+    expect(first[1]).toContain("A.EXE");
+    expect(first[2]).toContain("A.EXE");
+    expect(first[3]).toContain("b.txt");
+    // A file time can be set by any program, and is marked so.
+    expect(first[0]).toContain("uncertain");
+    fireEvent.change(screen.getByLabelText("Kind of time"), { target: { value: "deleted" } });
+    expect(subjects()).toHaveLength(1);
+    expect(subjects()[0]).toContain("b.txt");
+    fireEvent.change(screen.getByLabelText("Kind of time"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Certainty"), { target: { value: "uncertain" } });
+    expect(subjects()).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("Certainty"), { target: { value: "" } });
+    // 2026-10-01T03:00:00Z is 2026-10-01 00:00 in São Paulo: the date filter reads the shown zone.
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-10-02" } });
+    expect(subjects()).toHaveLength(3);
   });
 
   it("says what will be examined and starts nothing without consent", async () => {
@@ -525,6 +619,8 @@ describe("App", () => {
       screen.getByText(/Prefetch, BAM, PCA, UserAssist, MuiCache, FeatureUsage and AppCompatCache/),
     ).toBeTruthy();
     expect(screen.getByText(/never history, cookies or passwords/)).toBeTruthy();
+    expect(screen.getByText(/PcaSvc, DiagTrack, DPS, SysMain, EventLog/)).toBeTruthy();
+    expect(screen.getByText(/never the deleted file itself/)).toBeTruthy();
     expect(screen.getByText("You may refuse: close the program and nothing is read.")).toBeTruthy();
     const start = screen.getByText("Start the check") as HTMLButtonElement;
     expect(start.disabled).toBe(true);
@@ -533,12 +629,18 @@ describe("App", () => {
     expect(calls).not.toContain("report_view");
   });
 
-  it("shows the scan's real progress and lets it be cancelled, with no report", async () => {
+  it("shows the scan's real progress — the module running, counts and time — and lets it be cancelled, with no report", async () => {
     scanState = "running";
     render(<App />);
     await openReport("ss");
-    expect(await screen.findByText("1 of 3 modules (33%)")).toBeTruthy();
+    expect(await screen.findByText("1 of 3 modules (33%)", { exact: false })).toBeTruthy();
     expect(screen.getByText("read · 4 observations")).toBeTruthy();
+    // The module running is the one Rust names, not one guessed from the order.
+    expect(screen.getByText("running now")).toBeTruthy();
+    expect(screen.getAllByText("Security settings of this PC").length).toBeGreaterThan(0);
+    expect(screen.getByText("waiting")).toBeTruthy();
+    expect(screen.getByText("To run").nextElementSibling?.textContent).toBe("2");
+    expect(screen.getByText("Elapsed").nextElementSibling?.textContent).not.toBe("—");
     fireEvent.click(screen.getByText("Cancel the check"));
     expect(await screen.findByText("Check cancelled", {}, { timeout: 3000 })).toBeTruthy();
     expect(calls).toContain("cancel_scan");
@@ -547,52 +649,38 @@ describe("App", () => {
 
   it("starts an advanced scan only when it was chosen", async () => {
     render(<App />);
-    await openReport("ss", "full");
-    await screen.findByText("Found");
+    await openPage("ss", "overview", "full");
     expect(startedTier).toBe("full");
   });
 
   it("shows the SS view with hidden counts after consent", async () => {
     render(<App />);
-    await openReport("ss");
-    expect(await screen.findByText("Found")).toBeTruthy();
-    expect(await screen.findByText("Check: Secure Boot is turned off")).toBeTruthy();
-    // One not-found rule is hidden: `tpm-absent` is `context` strength, and SS mode lists a context
-    // rule only when it matches, while posture rules are listed whatever their state (ADR 0011).
-    // Eighteen not-measured rules are hidden: the firmware reading needs administrator rights, which this
-    // fixture's scan did not have, so it is said once in the scope line rather than as a row (ADR 0038);
-    // the seven full-scan rules, because this was a standard scan, which every rule expects (ADR 0052,
-    // ADR 0055, ADR 0064); the
-    // seven `os_image` rules, because this fixture describes no `CurrentVersion` key for them to read
-    // (ADR 0056); and three `install_marker` rules, because the fixture sets no environment variable
-    // for the folders they name (ADR 0057). The one unmatched observation is `install_marker`'s
-    // registry marker, which needs no environment variable and answered `present: false`. B.O.P.E 0.10.0
-    // adds three full-scan rules (`mft`, `shellbags`) and the `srum` and `wmi_subscription` rules this
-    // fixture's limited scan expects not to measure, and the new sources' unmatched rows (ADR 0124–0127).
-    expect(
-      screen.getByText(
-        "Hidden in SS mode: 26 not found · 33 not measured (expected) · 0 not measured (not expected) · 29 unmatched observations",
-      ),
-    ).toBeTruthy();
+    await openPage("ss", "evidence");
+    expect(await screen.findByText(TITLE)).toBeTruthy();
+    expect(screen.getByText(/^Hidden in SS mode:/).textContent).toBe(
+      `Hidden in SS mode: ${ssView.hidden.not_found} not found · ${ssView.hidden.unmeasured_expected} not measured (expected) · ${ssView.hidden.unmeasured_unexpected} not measured (not expected) · ${ssView.hidden.unmatched} unmatched observations`,
+    );
     expect(calls).toContain("report_view");
   });
 
-  it("shows the program version in the report header, which the release notes ask people to check", async () => {
+  it("shows the program version in the report facts, which the release notes ask people to check", async () => {
     render(<App />);
     await openReport("self");
     expect(await screen.findByText("Version")).toBeTruthy();
-    expect(screen.getByText(selfView.header.provenance.version)).toBeTruthy();
+    expect(screen.getAllByText(selfView.header.provenance.version).length).toBeGreaterThan(0);
   });
 
-  // One line of context in the header, in both modes, with the caveat beside it that stops a start
-  // days before the scan being read as something the player did (ADR 0039).
+  // One line of context, in both modes, with the caveat that stops a start days before the scan
+  // being read as something the player did (ADR 0039).
   it.each([["self" as const], ["ss" as const]])(
     "shows when Windows started, with its caveat, in %s mode",
     async (mode) => {
       render(<App />);
       await openReport(mode);
       expect(await screen.findByText("Windows start")).toBeTruthy();
-      expect(screen.getByText(/^2025-12-28T21:56:56Z, 3d 2h 3m before this scan\./)).toBeTruthy();
+      expect(
+        screen.getByText(`${shown("2025-12-28T21:56:56Z")}, 3d 2h 3m before this scan.`),
+      ).toBeTruthy();
       expect(screen.getByText(/Not reset by "Shut down" with Fast Startup/)).toBeTruthy();
     },
   );
@@ -605,24 +693,14 @@ describe("App", () => {
     await openReport("self");
     expect(await screen.findByText("Windows เริ่มทำงาน")).toBeTruthy();
     expect(
-      screen.getByText(/^2025-12-28T21:56:56Z \(3 วัน 2 ชม\. 3 นาที ก่อนการสแกนนี้\)/),
+      screen.getByText(`${shown("2025-12-28T21:56:56Z")} (3 วัน 2 ชม. 3 นาที ก่อนการสแกนนี้)`),
     ).toBeTruthy();
   });
 
-  // No time where none was measured, and the reason in the words every unmeasured row uses.
   it("shows an unmeasured boot time as a reason and no time", async () => {
     viewOverride = {
       ...selfView,
       header: { ...selfView.header, boot_time: { state: "unmeasured", reason: "not_windows" } },
-      // The trace ages read the same header in Rust, so their boot-time anchor says the same.
-      trace_ages: selfView.trace_ages && {
-        ...selfView.trace_ages,
-        anchors: selfView.trace_ages.anchors.map((anchor) =>
-          anchor.anchor === "boot_time"
-            ? { anchor: "boot_time", state: "unmeasured", reason: "not_windows" }
-            : anchor,
-        ),
-      },
     };
     render(<App />);
     await openReport("self");
@@ -639,8 +717,8 @@ describe("App", () => {
 
   it("does not offer the administrator restart when the program already has those rights", async () => {
     render(<App />);
-    // The banner proves the facts arrived, so the button is absent by choice and not by timing.
-    await screen.findByRole("alert");
+    // The version proves the facts arrived, so the button is absent by choice and not by timing.
+    await screen.findByText(selfView.header.provenance.version);
     expect(screen.queryByText("Restart as administrator")).toBeNull();
   });
 
@@ -655,9 +733,10 @@ describe("App", () => {
     await act(async () => {
       await i18n.changeLanguage("th");
     });
-    await openReport("self");
-    expect(await screen.findByText("ตรวจ: Secure Boot ถูกปิดอยู่")).toBeTruthy();
-    expect(screen.getByRole("alert").textContent).toContain("UNOFFICIAL BUILD");
+    await openPage("self", "evidence");
+    expect(await screen.findByText(THAI_TITLE)).toBeTruthy();
+    fireEvent.click(nav("settings"));
+    expect((await screen.findAllByText("UNOFFICIAL BUILD")).length).toBeGreaterThan(0);
   });
 
   it("lists what the tool itself left, apart from the evidence", async () => {
@@ -677,11 +756,10 @@ describe("App", () => {
       ],
     };
     render(<App />);
-    await openReport("self");
+    await openPage("self", "evidence");
     const section = await screen.findByRole("region", { name: "Own traces (excluded)" });
     expect(section.textContent).toContain("aeterna-rongroi.exe");
-    // The evidence list above it is untouched.
-    expect(screen.getByText("Check: Secure Boot is turned off")).toBeTruthy();
+    expect(screen.getByText(TITLE)).toBeTruthy();
   });
 
   it("lists what the collectors saw that no rule matched, apart from the evidence", async () => {
@@ -703,34 +781,31 @@ describe("App", () => {
       ],
     };
     render(<App />);
-    await openReport("self");
+    await openPage("self", "evidence");
     const section = await screen.findByRole("region", { name: "Unmatched observations" });
     expect(section.textContent).toContain("overlay.dll");
-    // The evidence list above it is untouched.
-    expect(screen.getByText("Check: Secure Boot is turned off")).toBeTruthy();
+    expect(screen.getByText(TITLE)).toBeTruthy();
   });
 
   it("shows no unmatched section when every observation matched a rule", async () => {
-    // The view is given no unmatched group, which is the case under test. The fixture behind
-    // `selfView` does produce one — `install_marker` answers its registry marker `present: false` on
-    // a host that describes no environment (ADR 0057) — and that is another test's business.
     viewOverride = { ...selfView, unmatched: [] };
     render(<App />);
-    await openReport("self");
-    // The evidence proves the view arrived, so the section is absent by choice and not by timing.
-    await screen.findByText("Check: Secure Boot is turned off");
+    await openPage("self", "evidence");
+    await screen.findByText(TITLE);
     expect(screen.queryByRole("region", { name: "Unmatched observations" })).toBeNull();
   });
 
-  // A match shown without what else produces it is a match shown as an accusation. Both halves are
-  // written in every rule and translated, and neither reached a screen before (ADR 0027).
-  it("shows a found entry's description and its false positives", async () => {
+  // A match shown without what else produces it is a match shown as an accusation (ADR 0027).
+  it("shows a found entry's description and its false positives in the side panel", async () => {
     render(<App />);
-    await openReport("self");
-    await screen.findByText("Check: Secure Boot is turned off");
-    expect(screen.getByText(`About this check: ${ENGLISH_DESCRIPTION}`)).toBeTruthy();
+    await openPage("self", "evidence");
+    fireEvent.click(await screen.findByText(TITLE));
+    const panel = await screen.findByRole("complementary", { name: TITLE });
+    expect(panel.textContent).toContain(`About this check: ${ENGLISH_DESCRIPTION}`);
     expect(screen.getByText("Ordinary things that also produce this:")).toBeTruthy();
     expect(screen.getByText(ENGLISH_FALSEPOSITIVE)).toBeTruthy();
+    // The raw JSON is there, folded, for whoever wants it.
+    expect(screen.getByText("Raw data (JSON)").closest("details")?.open).toBe(false);
   });
 
   it("shows a found entry's description and its false positives in Thai", async () => {
@@ -738,15 +813,13 @@ describe("App", () => {
     await act(async () => {
       await i18n.changeLanguage("th");
     });
-    await openReport("self");
-    await screen.findByText("ตรวจ: Secure Boot ถูกปิดอยู่");
-    expect(screen.getByText(`เกี่ยวกับการตรวจนี้: ${THAI_DESCRIPTION}`)).toBeTruthy();
+    await openPage("self", "evidence");
+    fireEvent.click(await screen.findByText(THAI_TITLE));
+    expect(await screen.findByText(`เกี่ยวกับการตรวจนี้: ${THAI_DESCRIPTION}`)).toBeTruthy();
     expect(screen.getByText("เรื่องปกติที่ทำให้เกิดผลแบบนี้ได้เหมือนกัน:")).toBeTruthy();
     expect(screen.getByText(THAI_FALSEPOSITIVE)).toBeTruthy();
   });
 
-  // `description` says what the check is, which a reader needs whatever the answer was;
-  // `falsepositives` explains a match, and nothing matched.
   it("shows the description but no false positives beside a not-found entry", async () => {
     const first = subject(selfView);
     viewOverride = {
@@ -762,16 +835,18 @@ describe("App", () => {
       ],
     };
     render(<App />);
-    await openReport("self");
-    fireEvent.click(await screen.findByText("Not found: 1 — show what was checked"));
-    openRow("Check: Secure Boot is turned off");
+    await openPage("self", "evidence");
+    const title = await screen.findByText(TITLE);
+    // A row starts closed: nothing about it until it is chosen.
+    expect(title.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText(`About this check: ${ENGLISH_DESCRIPTION}`)).toBeNull();
+    fireEvent.click(title);
+    expect(title.getAttribute("aria-expanded")).toBe("true");
     expect(await screen.findByText(`About this check: ${ENGLISH_DESCRIPTION}`)).toBeTruthy();
     expect(screen.queryByText("Ordinary things that also produce this:")).toBeNull();
-    expect(screen.queryByText(ENGLISH_FALSEPOSITIVE)).toBeNull();
+    expect(screen.getByText(`Look-back: ${ENGLISH_RETENTION}`)).toBeTruthy();
   });
 
-  // The whole of what `unmeasured_when` does to a view: a reason the rule named is a number, a
-  // reason it did not name is a row (ADR 0027).
   it("lists the unmeasured result its rule did not expect and counts the one it did", async () => {
     const first = subject(selfView);
     viewOverride = {
@@ -789,18 +864,15 @@ describe("App", () => {
       hidden: { ...ssView.hidden, unmeasured_expected: 3 },
     };
     render(<App />);
-    await openReport("ss");
+    await openPage("ss", "evidence");
     expect(await screen.findByText("Not measured (not expected)")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Hidden in SS mode: 26 not found · 3 not measured (expected) · 0 not measured (not expected) · 29 unmatched observations",
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText(/^Hidden in SS mode:/).textContent).toContain(
+      "3 not measured (expected)",
+    );
   });
 
-  // One fact about the scan that applies to every rule at once, and the one unmeasured reason with
-  // a remedy, so it is stated once above the evidence (ADR 0012, ADR 0027).
-  it("states missing administrator rights once, above the evidence", async () => {
+  // One fact about the scan that applies to every rule at once, stated once (ADR 0012, ADR 0027).
+  it("states missing administrator rights once, on the overview", async () => {
     viewOverride = { ...selfView, scope: { not_admin: 2, not_attempted: 0 } };
     render(<App />);
     await openReport("self");
@@ -809,10 +881,7 @@ describe("App", () => {
     expect(statements[0]?.textContent).toContain("2 check(s)");
   });
 
-  // The second scope statement, and the same shape for the same reason: a source this program
-  // stopped short of is one fact about how far the scan got, and it says so about the program and
-  // never about the PC (ADR 0030).
-  it("states the sources it never reached once, above the evidence", async () => {
+  it("states the sources it never reached once, on the overview", async () => {
     viewOverride = { ...selfView, scope: { not_admin: 0, not_attempted: 3 } };
     render(<App />);
     await openReport("self");
@@ -822,8 +891,7 @@ describe("App", () => {
     expect(statements[0]?.textContent).toContain("not a finding about this PC");
   });
 
-  // Each of the fourteen reasons reaches a reader as a sentence, never as its identifier: a row
-  // reading `source_empty` is a row that says nothing to the person it is about (ADR 0030).
+  // Each reason reaches a reader as a sentence, never as its identifier (ADR 0030).
   it.each([
     ["not_on_this_os", "this version of Windows does not keep this record"],
     ["not_attempted", "the scan stopped before reaching it"],
@@ -835,10 +903,7 @@ describe("App", () => {
     ["not_consented", "only a full scan reads this, and this was the standard scan"],
     ["other_volume", "this is on another drive, and this program reads only the system drive"],
   ])("shows %s as a sentence a non-expert reads", async (reason, sentence) => {
-    const first = selfView.evidence[0];
-    if (!first) {
-      throw new Error("the self-view snapshot has no evidence");
-    }
+    const first = subject(selfView);
     viewOverride = {
       ...selfView,
       evidence: [
@@ -851,19 +916,16 @@ describe("App", () => {
           expected: false,
         },
       ],
-      // The row is what this test reads; the timeline and the trace ages state their own
-      // unmeasured sources.
       timeline: { ...selfView.timeline, unmeasured: [] },
       trace_ages: undefined,
     };
     render(<App />);
-    await openReport("self");
-    fireEvent.click(await screen.findByText(/^Check: /));
+    await openPage("self", "evidence");
+    fireEvent.click(await screen.findByText(TITLE));
     expect(await screen.findByText(new RegExp(sentence))).toBeTruthy();
   });
 
-  // A count the change journal gives is for the span it still held; the row says that span, and a
-  // source that held no record says there was none (ADR 0047, amendment of 2026-09-30).
+  // A count the change journal gives is for the span it still held (ADR 0047, amendment of 2026-09-30).
   it.each([
     [
       { state: "span", from: "2026-09-30T10:24:00Z", to: "2026-09-30T11:03:00Z" },
@@ -871,10 +933,7 @@ describe("App", () => {
     ],
     [{ state: "no_span" }, /so there is no span/],
   ] as const)("shows the span a row's count is for (%o)", async (band, sentence) => {
-    const first = selfView.evidence[0];
-    if (!first) {
-      throw new Error("the self-view snapshot has no evidence");
-    }
+    const first = subject(selfView);
     viewOverride = {
       ...selfView,
       evidence: [
@@ -889,12 +948,12 @@ describe("App", () => {
       row_bands: { [first.rule_id]: band },
     };
     render(<App />);
-    await openReport("self");
+    await openPage("self", "evidence");
+    fireEvent.click(await screen.findByText(TITLE));
     expect(await screen.findByText(sentence)).toBeTruthy();
   });
 
-  // The third scope statement: which scan the player chose is one fact about the scan (ADR 0052).
-  it("states the checks only a full scan answers once, above the evidence", async () => {
+  it("states the checks only a full scan answers once, on the overview", async () => {
     viewOverride = { ...selfView, scope: { not_admin: 0, not_attempted: 0, not_consented: 1 } };
     render(<App />);
     await openReport("self");
@@ -903,8 +962,6 @@ describe("App", () => {
     expect(statements[0]?.textContent).toContain("1 check(s)");
   });
 
-  // A full scan is chosen in a new copy that asks in a Windows dialog before it reads anything; this
-  // window only offers it, and says so (ADR 0052).
   it("offers the website-name choice only for an advanced SS check, and passes the answer to the view", async () => {
     const seen: unknown[] = [];
     render(<App />);
@@ -912,7 +969,6 @@ describe("App", () => {
     expect(screen.queryByRole("checkbox", { name: /website names/ })).toBeNull();
     fireEvent.click(screen.getByLabelText(/^Advanced/));
     const toggle = screen.getByRole("checkbox", { name: /website names/ }) as HTMLInputElement;
-    // Off until the player turns it on.
     expect(toggle.checked).toBe(false);
     fireEvent.click(toggle);
     fireEvent.click(screen.getByLabelText("I have read what will be examined and I agree"));
@@ -924,7 +980,7 @@ describe("App", () => {
       return answer(cmd, args);
     });
     fireEvent.click(screen.getByText("Start the check"));
-    await screen.findByText("Found");
+    await screen.findByRole("region", { name: "What this scan lists" });
     expect(seen).toContainEqual({
       server_identity: false,
       account_identifier: false,
@@ -934,23 +990,21 @@ describe("App", () => {
 
   it("saves the report where the person chose, and shows each file's SHA-256", async () => {
     render(<App />);
-    await openReport("ss");
-    await screen.findByText("Found");
+    await openPage("ss", "reports");
     fireEvent.click(await screen.findByText("Save report"));
     expect(await screen.findByText("ab".repeat(32))).toBeTruthy();
     expect(exportedWith?.mode).toBe("ss");
     expect(exportedWith?.formats).toEqual(["html", "json", "txt", "pdf"]);
     expect(screen.getByText(/does not prove the scan was honest/)).toBeTruthy();
+    expect(screen.getByText(/America\/Sao_Paulo/)).toBeTruthy();
+    expect(exportedWith?.timeZone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
   });
 
   it("states nothing about administrator rights when every check was answerable", async () => {
-    // The snapshot's own scan could not read the firmware without those rights (ADR 0038), so the
-    // answerable case is written here: the same view with no rule stopped by them.
     viewOverride = { ...selfView, scope: { not_admin: 0, not_attempted: 0 } };
     render(<App />);
     await openReport("self");
-    // The evidence proves the view arrived, so the statement is absent by choice and not by timing.
-    await screen.findByText("Check: Secure Boot is turned off");
+    await screen.findByRole("region", { name: "What this scan lists" });
     expect(screen.queryByText(/could not be answered because this scan/)).toBeNull();
   });
 
@@ -972,15 +1026,14 @@ describe("App", () => {
     await act(async () => {
       await i18n.changeLanguage("th");
     });
-    await openReport("self");
-    fireEvent.click(await screen.findByText("ไม่เจอ 1 รายการ — กดเพื่อดูว่าตรวจอะไรไปบ้าง"));
-    fireEvent.click(screen.getByText("ตรวจ: Secure Boot ถูกปิดอยู่"));
+    await openPage("self", "evidence");
+    fireEvent.click(await screen.findByText(THAI_TITLE));
     expect(await screen.findByText(`ย้อนดูได้: ${THAI_RETENTION}`)).toBeTruthy();
-    expect(screen.queryByText(ENGLISH_RETENTION, { exact: false })).toBeNull();
+    // Only the folded raw data carries the English source the evidence keeps.
+    expect(screen.queryByText(ENGLISH_RETENTION, { exact: false, ignore: "pre" })).toBeNull();
   });
 
-  // Three counts of states and the sentence that no report proves a PC clean, above the rows; never
-  // one number (ADR 0002, ADR 0045).
+  // Three counts of states and the sentence that no report proves a PC clean; never one number.
   it("lists how many rows are in each state, beside the sentence that it proves nothing clean", async () => {
     render(<App />);
     await openReport("self");
@@ -991,7 +1044,6 @@ describe("App", () => {
       `${selfView.listed.not_found} not found — each row says how far back it can see`,
       `${selfView.listed.unmeasured} not measured — each row says why`,
     ]);
-    // A screen reader reads the count and its words apart, not "1found".
     expect(
       screen.getByRole("button", {
         name: `${selfView.listed.found} found — each one lists ordinary things that also produce it`,
@@ -1000,21 +1052,25 @@ describe("App", () => {
     expect(summary.textContent).toContain("This report cannot prove that a PC is clean");
   });
 
-  it("filters the rows to one state from its count", async () => {
+  it("opens the evidence filtered to one state from its count, and clears it", async () => {
     render(<App />);
     await openReport("self");
     const summary = await screen.findByRole("region", { name: "What this scan lists" });
-    const found = summary.querySelector("button");
-    if (!found) throw new Error("no count");
-    fireEvent.click(found);
-    expect(found.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("Check: Secure Boot is turned off")).toBeTruthy();
-    expect(screen.queryByText(/— show what was checked$/)).toBeNull();
+    fireEvent.click(summary.querySelector("button") as HTMLElement);
+    expect(await screen.findByText(TITLE)).toBeTruthy();
+    const state = screen.getByLabelText("State") as HTMLSelectElement;
+    expect(state.value).toBe("found");
+    expect(document.querySelectorAll(".evidence-table tbody tr:not(.group-title)").length).toBe(
+      selfView.listed.found,
+    );
     fireEvent.click(screen.getByText("Show every state"));
-    expect(found.getAttribute("aria-pressed")).toBe("false");
+    expect(state.value).toBe("");
+    expect(document.querySelectorAll(".evidence-table tbody tr:not(.group-title)").length).toBe(
+      selfView.evidence.length,
+    );
   });
 
-  // A count of 0 is a button like the others; choosing it must not leave an empty page.
+  // A count of 0 is a filter like the others; choosing it must not leave an empty page.
   it("says so when the chosen state has no row", async () => {
     viewOverride = {
       ...selfView,
@@ -1022,15 +1078,26 @@ describe("App", () => {
       listed: { ...selfView.listed, unmeasured: 0 },
     };
     render(<App />);
-    await openReport("self");
+    await openPage("self", "evidence");
     const summary = await screen.findByRole("region", { name: "What this scan lists" });
     expect(screen.queryByText("No row in this scan is in this state.")).toBeNull();
     fireEvent.click(summary.querySelectorAll("button")[2] as HTMLElement);
     expect(screen.getByText("No row in this scan is in this state.")).toBeTruthy();
-    // It is about the filter, not the report: the report's own empty sentence stays away.
     expect(screen.queryByText("No evidence to show.")).toBeNull();
     fireEvent.click(screen.getByText("Show every state"));
     expect(screen.queryByText("No row in this scan is in this state.")).toBeNull();
+  });
+
+  it("finds rows by text and says how many it shows", async () => {
+    render(<App />);
+    await openPage("self", "evidence");
+    await screen.findByText(TITLE);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "secure boot" } });
+    expect(screen.getByText(TITLE)).toBeTruthy();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "nothing-matches-this" } });
+    expect(screen.queryByText(TITLE)).toBeNull();
+    expect(screen.getByText("No row in this scan is in this state.")).toBeTruthy();
+    expect(screen.getByText(`0 of ${selfView.evidence.length} shown`)).toBeTruthy();
   });
 
   // Two copies of one program running are two identical observations (ADR 0010).
@@ -1046,9 +1113,9 @@ describe("App", () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       render(<App />);
-      await openReport("self");
+      await openPage("self", "evidence");
       const section = await screen.findByRole("region", { name: "Unmatched observations" });
-      expect(section.querySelectorAll("li").length).toBeGreaterThanOrEqual(2);
+      expect(section.querySelectorAll(".observations > li").length).toBe(2);
       expect(section.textContent?.split("name=FiveM.exe").length).toBe(3);
       const keyWarnings = errors.mock.calls.filter((call) =>
         call.some((part) => String(part).includes("same key")),
@@ -1064,34 +1131,11 @@ describe("App", () => {
     await act(async () => {
       await i18n.changeLanguage("th");
     });
-    await openReport("self");
-    expect(await screen.findByRole("region", { name: "การตั้งค่าความปลอดภัยของเครื่อง" })).toBeTruthy();
+    await openPage("self", "evidence");
+    expect(await screen.findByText(/^การตั้งค่าความปลอดภัยของเครื่อง · \d+$/)).toBeTruthy();
   });
 
-  it("starts a not-found row closed, with the description cut short and not labelled", async () => {
-    const first = subject(selfView);
-    viewOverride = {
-      ...selfView,
-      evidence: [
-        {
-          rule_id: first.rule_id,
-          collector: first.collector,
-          strength: first.strength,
-          state: "not_found",
-          retention: ENGLISH_RETENTION,
-        },
-      ],
-    };
-    render(<App />);
-    await openReport("self");
-    fireEvent.click(await screen.findByText("Not found: 1 — show what was checked"));
-    const head = screen.getByText("Check: Secure Boot is turned off").closest("button");
-    expect(head?.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.getByText(ENGLISH_DESCRIPTION)).toBeTruthy();
-    expect(screen.queryByText(`About this check: ${ENGLISH_DESCRIPTION}`)).toBeNull();
-  });
-
-  it("opens technical details and the rule's files at this build's commit", async () => {
+  it("shows the rule and its files at this build's commit in the side panel", async () => {
     linksOverride = {
       repository: REPOSITORY,
       code: `${REPOSITORY}/tree/${COMMIT}`,
@@ -1099,11 +1143,10 @@ describe("App", () => {
     };
     stubClipboard("ok");
     render(<App />);
-    await openReport("self");
-    fireEvent.click(await screen.findByLabelText("Show technical details for every row"));
+    await openPage("self", "evidence");
+    fireEvent.click(await screen.findByText(TITLE));
     expect(screen.getAllByText(RULE_ID).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("secure_boot").length).toBeGreaterThan(0);
-    const rulePath = screen.getByText("rules/posture/boot/secure-boot-disabled/rule.yaml");
+    const rulePath = await screen.findByText("rules/posture/boot/secure-boot-disabled/rule.yaml");
     const copy = rulePath.parentElement?.querySelector("button");
     if (!copy) throw new Error("no copy button");
     await act(async () => {
@@ -1117,15 +1160,13 @@ describe("App", () => {
 
   it("shows no file links for an unofficial build and says why", async () => {
     render(<App />);
-    await openReport("self");
-    fireEvent.click(await screen.findByLabelText("Show technical details for every row"));
+    await openPage("self", "evidence");
+    fireEvent.click(await screen.findByText(TITLE));
     const rulePath = await screen.findByText("rules/posture/boot/secure-boot-disabled/rule.yaml");
     expect(rulePath.parentElement?.querySelector("button")).toBeNull();
     expect(screen.getAllByText(/This build is not official/).length).toBeGreaterThan(0);
   });
 
-  // An official build whose commit was not recorded is still official: the sentence says the commit
-  // is not known, never that the build is not official.
   it("says the commit is not known, not that the build is unofficial, for an official build without one", async () => {
     const official = {
       ...selfView.header,
@@ -1135,8 +1176,8 @@ describe("App", () => {
     viewOverride = { ...selfView, header: official };
     linksOverride = { repository: REPOSITORY, code: REPOSITORY, commit: null };
     render(<App />);
-    await openReport("self");
-    fireEvent.click(await screen.findByLabelText("Show technical details for every row"));
+    await openPage("self", "evidence");
+    fireEvent.click(await screen.findByText(TITLE));
     const rulePath = await screen.findByText("rules/posture/boot/secure-boot-disabled/rule.yaml");
     expect(rulePath.parentElement?.querySelector("button")).toBeNull();
     expect(
@@ -1145,32 +1186,34 @@ describe("App", () => {
     expect(screen.queryByText(/This build is not official/)).toBeNull();
   });
 
-  // Carried fix (b): before `codeLinks()` has arrived (or after it has failed), the report does not
-  // yet know whether this build is official, so it must not say either thing about the commit.
+  // Carried fix (b): before `codeLinks()` has arrived, the report does not know whether this build is
+  // official, so it must not say either thing about the commit.
   it("says nothing about the build's commit before the code links resolve", async () => {
     linksNeverResolve = true;
     render(<App />);
-    await openReport("self");
-    fireEvent.click(await screen.findByLabelText("Show technical details for every row"));
+    await openPage("self", "evidence");
+    fireEvent.click(await screen.findByText(TITLE));
     const rulePath = await screen.findByText("rules/posture/boot/secure-boot-disabled/rule.yaml");
     expect(rulePath.parentElement?.querySelector("button")).toBeNull();
     expect(screen.queryByText(/This build is not official/)).toBeNull();
     expect(screen.queryByText(/At the commit this program was built from/)).toBeNull();
   });
 
-  it("opens About & code from the start screen, with the repository and its QR code", async () => {
+  it("opens About from the start screen, with the repository, its QR code, credits and licence", async () => {
     stubClipboard("ok");
     render(<App />);
-    fireEvent.click(await screen.findByText("About & code"));
+    await screen.findByText(selfView.header.provenance.version);
+    fireEvent.click(nav("settings"));
     expect(await screen.findByText("About this program and its code")).toBeTruthy();
     expect(screen.getByText(REPOSITORY)).toBeTruthy();
     const qr = await screen.findByAltText(`QR code for ${REPOSITORY}`);
     expect(qr.getAttribute("src")).toMatch(/^data:image\/svg\+xml;charset=utf-8,/);
-    // The snapshot's build is unofficial: its code is not known, and the page says so.
     expect(screen.getByText(/The code this build was made from is not known/)).toBeTruthy();
-    // The window uses the consent screen's form of the ADR 0003 statement (`consent.sends`,
-    // `consent.webview`), which ADR 0045 §7 keeps unchanged.
     expect(screen.getByText("aeterna-rongroi's own code sends nothing anywhere.")).toBeTruthy();
+    expect(screen.getByText(/is a modified version of aeterna-rongroi 0\.9\.0/)).toBeTruthy();
+    expect(
+      screen.getByText(/GPL-3\.0-or-later\. Rules and rule translations: CC-BY-SA-4\.0/),
+    ).toBeTruthy();
     await act(async () => {
       fireEvent.click(screen.getAllByText("Copy link")[0] as HTMLElement);
     });
@@ -1188,7 +1231,8 @@ describe("App", () => {
       commit: COMMIT,
     };
     render(<App />);
-    fireEvent.click(await screen.findByText("About & code"));
+    await screen.findByText(selfView.header.provenance.version);
+    fireEvent.click(nav("settings"));
     expect(await screen.findByText(`${REPOSITORY}/tree/${COMMIT}`)).toBeTruthy();
     expect(
       screen.getByText(
@@ -1198,60 +1242,59 @@ describe("App", () => {
     expect(screen.queryByText(/The code this build was made from is not known/)).toBeNull();
   });
 
-  it("says on About & code that an official build's commit is not known, without calling it unofficial", async () => {
+  it("says on About that an official build's commit is not known, without calling it unofficial", async () => {
     headerOverride = {
       ...selfView.header,
       provenance: { ...selfView.header.provenance, official: true, commit: null },
     };
     linksOverride = { repository: REPOSITORY, code: REPOSITORY, commit: null };
     render(<App />);
-    fireEvent.click(await screen.findByText("About & code"));
+    await screen.findByText(selfView.header.provenance.version);
+    fireEvent.click(nav("settings"));
     expect(
       await screen.findByText("The commit this build was made from is not known."),
     ).toBeTruthy();
     expect(screen.queryByText(/not built by the release workflow/)).toBeNull();
   });
 
-  // About & code is reachable from every screen, so leaving it returns to the screen it was opened
-  // from: an SS report stays an SS report, without asking for consent a second time.
-  it("returns from About & code to the report it was opened from", async () => {
+  // Moving between pages never leaves the report or asks for consent again.
+  it("returns from About to the same SS report without asking again", async () => {
     render(<App />);
-    await openReport("ss");
-    expect(await screen.findByText("Found")).toBeTruthy();
-    fireEvent.click(screen.getByText("About & code"));
+    await openPage("ss", "evidence");
+    expect(await screen.findByText(TITLE)).toBeTruthy();
+    fireEvent.click(nav("settings"));
     expect(await screen.findByText("About this program and its code")).toBeTruthy();
-    // Opening it again from itself must not make it its own way back.
-    fireEvent.click(screen.getByText("About & code"));
-    fireEvent.click(screen.getAllByText("Back")[0] as HTMLElement);
-    expect(await screen.findByText("Found")).toBeTruthy();
+    fireEvent.click(nav("evidence"));
+    expect(await screen.findByText(TITLE)).toBeTruthy();
     expect(screen.getByText(/^Hidden in SS mode:/)).toBeTruthy();
-    expect(screen.queryByText("You may refuse.")).toBeNull();
-    expect(screen.queryByText("What do you want to do?")).toBeNull();
+    expect(screen.queryByText("What will be examined")).toBeNull();
+    expect(calls.filter((cmd) => cmd === "start_scan")).toHaveLength(1);
   });
 
-  // The header is the app's: About & code does not ask Rust for it a second time.
-  it("asks for the header once, whether or not About & code is opened", async () => {
+  it("asks for the header once, whether or not About is opened", async () => {
     render(<App />);
-    fireEvent.click(await screen.findByText("About & code"));
+    await screen.findByText(selfView.header.provenance.version);
+    fireEvent.click(nav("settings"));
     await screen.findByText(REPOSITORY);
     expect(calls.filter((cmd) => cmd === "app_info")).toEqual(["app_info"]);
   });
 
-  it("says on About & code that its details could not be read, and still goes back", async () => {
+  it("says on About that its details could not be read, and the start screen is still there", async () => {
     linksFail = true;
     render(<App />);
-    fireEvent.click(await screen.findByText("About & code"));
+    await screen.findByText(selfView.header.provenance.version);
+    fireEvent.click(nav("settings"));
     expect(
       await screen.findByText("What this page shows could not be read from the program."),
     ).toBeTruthy();
-    fireEvent.click(screen.getAllByText("Back")[0] as HTMLElement);
+    fireEvent.click(nav("scanner"));
     expect(await screen.findByText("What will be examined")).toBeTruthy();
   });
 
-  it("says on About & code that its details could not be read when the header was refused", async () => {
+  it("says on About that its details could not be read when the header was refused", async () => {
     headerFails = true;
     render(<App />);
-    fireEvent.click(await screen.findByText("About & code"));
+    fireEvent.click(nav("settings"));
     expect(
       await screen.findByText("What this page shows could not be read from the program."),
     ).toBeTruthy();
@@ -1260,7 +1303,8 @@ describe("App", () => {
   it("offers to copy again after saying Copied", async () => {
     stubClipboard("ok");
     render(<App />);
-    fireEvent.click(await screen.findByText("About & code"));
+    await screen.findByText(selfView.header.provenance.version);
+    fireEvent.click(nav("settings"));
     await screen.findByText(REPOSITORY);
     vi.useFakeTimers();
     try {
@@ -1284,11 +1328,27 @@ describe("App", () => {
   it("says a refused copy and leaves the text to select", async () => {
     stubClipboard("refused");
     render(<App />);
-    fireEvent.click(await screen.findByText("About & code"));
+    await screen.findByText(selfView.header.provenance.version);
+    fireEvent.click(nav("settings"));
     await screen.findByText(REPOSITORY);
     await act(async () => {
       fireEvent.click(screen.getAllByText("Copy link")[0] as HTMLElement);
     });
     expect(screen.getByText("Could not copy — select the text instead")).toBeTruthy();
+  });
+
+  it("switches the first reading of every time to UTC and keeps the choice", async () => {
+    render(<App />);
+    await openReport("self");
+    const at = selfView.header.generated_at;
+    await screen.findByRole("region", { name: "What this scan lists" });
+    fireEvent.click(nav("settings"));
+    fireEvent.click(screen.getByLabelText(/UTC first/));
+    fireEvent.click(nav("overview"));
+    const utc = showTime(at, "UTC")?.utc;
+    const element = await screen.findAllByText(`${utc} UTC`);
+    expect(element.length).toBeGreaterThan(0);
+    expect(window.localStorage.getItem("bope.timeDisplay")).toBe("utc");
+    window.localStorage.removeItem("bope.timeDisplay");
   });
 });

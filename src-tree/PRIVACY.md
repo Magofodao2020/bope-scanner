@@ -49,6 +49,14 @@ Standard scan:
   classes and names, the program a consumer starts (never its arguments) with SHA-256 and signature, a
   script consumer's engine and script file, and for an inline script only its length, SHA-256 and the
   program/script file names it mentions — never the script's text.
+- **Windows services** (ADR 0130): for PcaSvc, DiagTrack, DPS, SysMain and EventLog, what the Service
+  Control Manager reports now (state, process id, start type, account, program path), asked with query
+  rights only, and their state, start-type and install events (7034, 7036, 7040, 7045) in the System log,
+  read as a file. No service is started, stopped or changed. Shown in both modes.
+- **Recycle Bin times** (ADR 0131): for this account's Recycle Bin on the system drive, each `$I` file
+  (original path, size, deletion time) and the times of the `$I` and `$R` entries; the deleted files are
+  never opened and nothing is restored or removed. SS mode shows only a summary without names and the
+  items whose name matches the Roblox tool catalog, with paths redacted.
 - **Change journal names** (ADR 0121): names of files matching the Roblox tool catalog, with counts of
   creations, deletions and renames and first/last times. Every other name is dropped after comparison.
 - **FastFlag files** (ADR 0122): size, times, SHA-256, counts of flags by kind and the names of

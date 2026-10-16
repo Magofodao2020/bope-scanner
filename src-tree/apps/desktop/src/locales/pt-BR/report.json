@@ -415,7 +415,7 @@
     "col_level": "Nível",
     "col_rule": "Verificação",
     "col_source": "Fonte",
-    "col_times": "Horários registrados (UTC)",
+    "col_times": "Horários registrados",
     "proximity": "Proximidade temporal de {{minutes}} min entre \"{{a}}\" e \"{{b}}\". Proximidade não é causalidade.",
     "limits": "Limitações desta verificação"
   },

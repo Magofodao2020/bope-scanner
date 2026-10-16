@@ -105,13 +105,28 @@ pub fn file_stem(generated_at: &str, mode: Mode) -> String {
     format!("bope-report-{stamp}-{mode}")
 }
 
-/// Builds one export.
+/// Builds one export with every time in UTC only.
 pub fn export(view: &ReportView, bundle: &Bundle, lang: &str, format: Format) -> Exported {
+    export_in_zone(view, bundle, lang, format, None)
+}
+
+/// Builds one export; HTML, text and PDF write each time in UTC and also in `zone` (an IANA name,
+/// as the desktop window shows it), with the kind of time beside it (B.O.P.E, ADR 0132). JSON keeps
+/// every time exactly as recorded, RFC 3339 UTC, and names the zone. An unknown zone is UTC only.
+pub fn export_in_zone(
+    view: &ReportView,
+    bundle: &Bundle,
+    lang: &str,
+    format: Format,
+    zone: Option<&str>,
+) -> Exported {
+    let named = zone.and_then(crate::report_time::zone_named);
+    let zone = named.as_ref().map(|z| (z, zone.unwrap_or_default().trim()));
     let bytes = match format {
-        Format::Json => json(view, bundle, lang),
-        Format::Html => html(view, bundle, lang).into_bytes(),
-        Format::Text => text(view, bundle, lang).into_bytes(),
-        Format::Pdf => pdf(view, bundle, lang),
+        Format::Json => json(view, bundle, lang, zone),
+        Format::Html => html(view, bundle, lang, zone).into_bytes(),
+        Format::Text => text(view, bundle, lang, zone).into_bytes(),
+        Format::Pdf => pdf(view, bundle, lang, zone),
     };
     Exported {
         sha256: sha256_hex(&bytes),
@@ -139,6 +154,10 @@ struct JsonExport<'a> {
     based_on: &'static str,
     language: &'a str,
     hash_note: &'static str,
+    /// The zone the HTML, text and PDF exports of the same view also write times in; every time in
+    /// this file stays RFC 3339 UTC, as recorded.
+    time_zone: Option<&'a str>,
+    times_note: &'static str,
     view: &'a ReportView,
     rules: std::collections::BTreeMap<String, RuleEntry>,
 }
@@ -186,7 +205,13 @@ fn rule_entries(
     out
 }
 
-fn json(view: &ReportView, bundle: &Bundle, lang: &str) -> Vec<u8> {
+/// A zone for the report: the zone itself and its IANA name.
+type Zone<'a> = Option<(&'a jiff::tz::TimeZone, &'a str)>;
+
+const TIMES_NOTE: &str =
+    "Every time is RFC 3339 / ISO 8601 in UTC, as recorded; nothing was converted.";
+
+fn json(view: &ReportView, bundle: &Bundle, lang: &str, zone: Zone<'_>) -> Vec<u8> {
     let export = JsonExport {
         format: FORMAT_NAME,
         format_version: FORMAT_VERSION,
@@ -194,6 +219,8 @@ fn json(view: &ReportView, bundle: &Bundle, lang: &str) -> Vec<u8> {
         based_on: "aeterna-rongroi (GPL-3.0-or-later); modified version, not an official aeterna-rongroi build",
         language: lang,
         hash_note: HASH_NOTE,
+        time_zone: zone.map(|z| z.1),
+        times_note: TIMES_NOTE,
         view,
         rules: rule_entries(view, bundle, lang),
     };
@@ -464,7 +491,8 @@ fn assessment_of(view: &ReportView) -> Option<&Assessment> {
 }
 
 #[allow(clippy::too_many_lines)]
-fn text(view: &ReportView, bundle: &Bundle, lang: &str) -> String {
+fn text(view: &ReportView, bundle: &Bundle, lang: &str, zone: Zone<'_>) -> String {
+    let at = |t: &str| crate::report_time::shown(t, zone.map(|z| z.0));
     let mut out = String::new();
     let h = &view.header;
     let _ = writeln!(out, "B.O.P.E Scanner — relatório de verificação");
@@ -479,11 +507,8 @@ fn text(view: &ReportView, bundle: &Bundle, lang: &str) -> String {
         "Regras               : {} regras, SHA-256 {}",
         h.rules_bundle.rule_count, h.rules_bundle.sha256
     );
-    let _ = writeln!(out, "Gerado em (UTC)      : {}", h.generated_at);
-    let _ = writeln!(
-        out,
-        "Fuso dos horários    : UTC (todos os horários deste relatório)"
-    );
+    let _ = writeln!(out, "Gerado em            : {}", at(&h.generated_at));
+    let _ = writeln!(out, "Fuso dos horários    : {}", zone_line(zone));
     let _ = writeln!(
         out,
         "Windows              : {} {}",
@@ -543,8 +568,8 @@ fn text(view: &ReportView, bundle: &Bundle, lang: &str) -> String {
             let _ = writeln!(out, "EVIDÊNCIAS QUE SUSTENTAM A CONCLUSÃO");
             for f in &a.supporting {
                 let when = match (&f.earliest, &f.latest) {
-                    (Some(a), Some(b)) if a != b => format!(" — {a} a {b}"),
-                    (Some(a), _) => format!(" — {a}"),
+                    (Some(a), Some(b)) if a != b => format!(" — {} a {}", at(a), at(b)),
+                    (Some(a), _) => format!(" — {}", at(a)),
                     _ => String::new(),
                 };
                 let _ = writeln!(
@@ -651,20 +676,22 @@ fn text(view: &ReportView, bundle: &Bundle, lang: &str) -> String {
         }
     }
     let _ = writeln!(out);
+    services_text(&mut out, view, &at);
+    recycle_text(&mut out, view, &at);
     let _ = writeln!(
         out,
-        "LINHA DO TEMPO ({} registros; horários em UTC; ordem de horários registrados não é ordem de eventos)",
+        "LINHA DO TEMPO ({} registros; ordem de horários registrados não é ordem de eventos)",
         view.timeline.entries.len()
     );
     for entry in view.timeline.entries.iter().take(500) {
+        let collector = entry.collector.as_deref();
         let _ = writeln!(
             out,
-            "  {}  {:<20} {:<16} {}",
-            entry.at,
-            entry
-                .collector
-                .clone()
-                .unwrap_or_else(|| "âncora".to_owned()),
+            "  {}  [{} · {}] {} {} {}",
+            at(&entry.at),
+            crate::report_time::kind_label(crate::report_time::kind(collector, &entry.field)),
+            crate::report_time::certainty(collector, &entry.field),
+            collector.unwrap_or("âncora"),
             entry.field,
             entry.subject.clone().unwrap_or_default()
         );
@@ -692,9 +719,9 @@ fn is_heading(line: &str) -> bool {
 
 /// The text report as a PDF, with the SHA-256 of the JSON export of the same view written into it so
 /// a reader can match the two (ADR 0129).
-fn pdf(view: &ReportView, bundle: &Bundle, lang: &str) -> Vec<u8> {
-    let json_sha = sha256_hex(&json(view, bundle, lang));
-    let body = text(view, bundle, lang);
+fn pdf(view: &ReportView, bundle: &Bundle, lang: &str, zone: Zone<'_>) -> Vec<u8> {
+    let json_sha = sha256_hex(&json(view, bundle, lang, zone));
+    let body = text(view, bundle, lang, zone);
     let mut lines = Vec::new();
     for (i, line) in body.lines().enumerate() {
         if i == 0 || is_heading(line) {
@@ -752,7 +779,8 @@ fn state_class(state: ModuleState) -> &'static str {
 const CSS: &str = "body{font:14px/1.5 system-ui,Segoe UI,sans-serif;margin:0;background:#0f1216;color:#e6e9ee}main{max-width:1100px;margin:0 auto;padding:24px}h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 8px;border-bottom:1px solid #2a313b;padding-bottom:4px}.muted{color:#9aa4b2}.banner{padding:14px 16px;border-radius:8px;margin:16px 0;border:1px solid #2a313b;background:#161b22}.banner strong{font-size:17px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:6px 8px;border-bottom:1px solid #222a33;vertical-align:top}.chip{display:inline-block;min-width:54px;text-align:center;font-weight:700;font-size:12px;padding:2px 8px;border-radius:999px}.ok{background:#12351f;color:#7ee2a0}.info{background:#13283f;color:#8cc4ff}.warn{background:#3d3010;color:#ffd166}.flag{background:#3f1418;color:#ff8a8a}.na{background:#2a2f36;color:#b9c2cc}.ev{border:1px solid #2a313b;border-radius:8px;padding:10px 12px;margin:8px 0;background:#141920}.obs{font-family:Consolas,monospace;font-size:12px;color:#c9d1d9;white-space:pre-wrap;word-break:break-all}.small{font-size:12px}footer{margin:32px 0 8px;color:#9aa4b2;font-size:12px}";
 
 #[allow(clippy::too_many_lines)]
-fn html(view: &ReportView, bundle: &Bundle, lang: &str) -> String {
+fn html(view: &ReportView, bundle: &Bundle, lang: &str, zone: Zone<'_>) -> String {
+    let at = |t: &str| crate::report_time::shown(t, zone.map(|z| z.0));
     let h = &view.header;
     let mut out = String::new();
     let _ = write!(
@@ -765,9 +793,10 @@ fn html(view: &ReportView, bundle: &Bundle, lang: &str) -> String {
     );
     let _ = write!(
         out,
-        "<table class=\"small\" style=\"margin-top:12px\"><tr><th>Versão</th><td>{}</td><th>Gerado em</th><td>{} (UTC; todos os horários em UTC)</td></tr><tr><th>Regras</th><td>{} · SHA-256 <code>{}</code></td><th>Windows</th><td>{} {}</td></tr><tr><th>Administrador</th><td>{}</td><th>Verificação</th><td>{} · modo {}</td></tr></table>",
+        "<table class=\"small\" style=\"margin-top:12px\"><tr><th>Versão</th><td>{}</td><th>Gerado em</th><td>{}<br><span class=\"muted small\">{}</span></td></tr><tr><th>Regras</th><td>{} · SHA-256 <code>{}</code></td><th>Windows</th><td>{} {}</td></tr><tr><th>Administrador</th><td>{}</td><th>Verificação</th><td>{} · modo {}</td></tr></table>",
         escape(&h.provenance.version),
-        escape(&h.generated_at),
+        escape(&at(&h.generated_at)),
+        escape(&zone_line(zone)),
         h.rules_bundle.rule_count,
         escape(&h.rules_bundle.sha256),
         escape(&h.platform),
@@ -952,21 +981,26 @@ fn html(view: &ReportView, bundle: &Bundle, lang: &str) -> String {
             }
         }
     }
+    let mut sections = String::new();
+    services_text(&mut sections, view, &at);
+    recycle_text(&mut sections, view, &at);
+    if !sections.is_empty() {
+        let _ = write!(out, "<pre class=\"small\">{}</pre>", escape(&sections));
+    }
     let _ = write!(
         out,
-        "<h2>Linha do tempo</h2><p class=\"muted small\">Horários em UTC. Ordem de horários registrados não é ordem de eventos; um registro ausente não foi necessariamente apagado.</p><table class=\"small\">"
+        "<h2>Linha do tempo</h2><p class=\"muted small\">{}. Ordem de horários registrados não é ordem de eventos; um registro ausente não foi necessariamente apagado.</p><table class=\"small\">",
+        escape(&zone_line(zone))
     );
     for entry in view.timeline.entries.iter().take(1000) {
+        let collector = entry.collector.as_deref();
         let _ = write!(
             out,
-            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-            escape(&entry.at),
-            escape(
-                &entry
-                    .collector
-                    .clone()
-                    .unwrap_or_else(|| "âncora".to_owned())
-            ),
+            "<tr><td>{}</td><td>{} · {}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            escape(&at(&entry.at)),
+            crate::report_time::kind_label(crate::report_time::kind(collector, &entry.field)),
+            crate::report_time::certainty(collector, &entry.field),
+            escape(collector.unwrap_or("âncora")),
             escape(&entry.field),
             escape(&entry.subject.clone().unwrap_or_default())
         );
@@ -976,6 +1010,180 @@ fn html(view: &ReportView, bundle: &Bundle, lang: &str) -> String {
         "</table><footer>Somente evidências. Este relatório não prova que um PC está limpo nem que alguém trapaceou. O SHA-256 publicado ao lado deste arquivo mostra se ele foi alterado depois de calculado; não prova sozinho a autenticidade da coleta.</footer></main></body></html>"
     );
     out
+}
+
+/// The line saying which zones the times are in.
+fn zone_line(zone: Zone<'_>) -> String {
+    match zone {
+        Some((_, name)) => format!(
+            "horários em UTC e no fuso {name} (o deslocamento de cada horário está ao lado dele); o JSON guarda o valor original em UTC"
+        ),
+        None => "horários em UTC; o JSON guarda o valor original em UTC".to_owned(),
+    }
+}
+
+/// Any value of an observation as text; `""` when absent.
+fn vt(o: &Observation, name: &str) -> String {
+    match o.fields.get(name) {
+        None | Some(serde_json::Value::Null) => String::new(),
+        Some(serde_json::Value::String(s)) => s.clone(),
+        Some(other) => other.to_string(),
+    }
+}
+
+fn or_dash(text: String) -> String {
+    if text.is_empty() {
+        "—".to_owned()
+    } else {
+        text
+    }
+}
+
+/// The services section of the text report: the state at the moment of the scan apart from the
+/// history, and the sentence that a stopped service is not a finding (B.O.P.E, ADR 0130).
+fn services_text(out: &mut String, view: &ReportView, at: &dyn Fn(&str) -> String) {
+    if view.services.is_empty() {
+        return;
+    }
+    let _ = writeln!(
+        out,
+        "SERVIÇOS DO WINDOWS (estado no momento da coleta; Service Control Manager, só consulta)"
+    );
+    let _ = writeln!(
+        out,
+        "  Um serviço parado ou desativado não é, por si só, indício de trapaça."
+    );
+    for o in view.services.iter().filter(|o| vt(o, "scope") == "current") {
+        let state = match vt(o, "query").as_str() {
+            "ok" => vt(o, "state"),
+            "not_installed" => "não instalado".to_owned(),
+            "access_denied" => "consulta negada".to_owned(),
+            other => format!("falha na consulta ({other})"),
+        };
+        let start = vt(o, "start_type");
+        let pid = vt(o, "pid");
+        let collected = vt(o, "collected_at");
+        let _ = writeln!(
+            out,
+            "  {:<10} {:<14} início: {:<10} conta: {} pid: {} coletado: {}",
+            vt(o, "service"),
+            state,
+            or_dash(start),
+            or_dash(vt(o, "account")),
+            or_dash(pid),
+            if collected.is_empty() {
+                "—".to_owned()
+            } else {
+                at(&collected)
+            },
+        );
+    }
+    let history: Vec<_> = view
+        .services
+        .iter()
+        .filter(|o| vt(o, "scope") == "history" && vt(o, "event") != "log_span")
+        .collect();
+    let _ = writeln!(
+        out,
+        "  Histórico no log System ({} eventos, somente leitura):",
+        history.len()
+    );
+    for o in history {
+        let _ = writeln!(
+            out,
+            "    {}  {:<10} {} {} {} (evento {}, registro {})",
+            at(&vt(o, "event_at")),
+            vt(o, "service"),
+            vt(o, "event"),
+            vt(o, "state_text"),
+            vt(o, "start_type_text"),
+            vt(o, "event_id"),
+            vt(o, "record_id"),
+        );
+    }
+    let _ = writeln!(out);
+}
+
+/// The Recycle Bin section: the last modification observed in the artifact, never a global time,
+/// and each item's own times (B.O.P.E, ADR 0131).
+fn recycle_text(out: &mut String, view: &ReportView, at: &dyn Fn(&str) -> String) {
+    let Some(bin) = view.recycle_bin.iter().find(|o| vt(o, "scope") == "bin") else {
+        return;
+    };
+    let when = |name: &str| {
+        let value = vt(bin, name);
+        if value.is_empty() {
+            "—".to_owned()
+        } else {
+            at(&value)
+        }
+    };
+    let _ = writeln!(
+        out,
+        "LIXEIRA ({}, somente leitura; nenhum arquivo excluído foi aberto)",
+        vt(bin, "drive")
+    );
+    let _ = writeln!(
+        out,
+        "  Última modificação observada no artefato: {} ({})",
+        when("last_artifact_change"),
+        match vt(bin, "last_artifact_change_source").as_str() {
+            "folder" => "horário de gravação da própria pasta",
+            "entry" => "horário de uma entrada $I/$R",
+            _ => "sem horário",
+        }
+    );
+    let _ = writeln!(
+        out,
+        "  Exclusão mais recente registrada em um $I: {}",
+        when("newest_deleted_at")
+    );
+    let _ = writeln!(
+        out,
+        "  Exclusão mais antiga registrada: {}",
+        when("oldest_deleted_at")
+    );
+    let _ = writeln!(
+        out,
+        "  Entradas: {} $I, {} $R; sem par: {} $I sem $R, {} $R sem $I; $I ilegíveis: {}",
+        vt(bin, "index_entries"),
+        vt(bin, "content_entries"),
+        vt(bin, "orphan_index"),
+        vt(bin, "orphan_content"),
+        vt(bin, "unreadable_index"),
+    );
+    let _ = writeln!(
+        out,
+        "  Não existe um único \"modificada em\" para a Lixeira; a ausência de um item não prova exclusão intencional."
+    );
+    for o in view.recycle_bin.iter().filter(|o| vt(o, "scope") == "item") {
+        let content = if vt(o, "content_present") == "true" {
+            let modified = vt(o, "content_modified");
+            format!(
+                "$R presente, última gravação {}",
+                if modified.is_empty() {
+                    "—".to_owned()
+                } else {
+                    at(&modified)
+                }
+            )
+        } else {
+            "sem $R".to_owned()
+        };
+        let deleted = vt(o, "deleted_at");
+        let _ = writeln!(
+            out,
+            "    {}  excluído: {}  ({})",
+            vt(o, "path"),
+            if deleted.is_empty() {
+                "—".to_owned()
+            } else {
+                at(&deleted)
+            },
+            content
+        );
+    }
+    let _ = writeln!(out);
 }
 
 #[cfg(test)]

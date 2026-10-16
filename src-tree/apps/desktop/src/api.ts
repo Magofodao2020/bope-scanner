@@ -62,6 +62,7 @@ export function exportReport(
   lang: string,
   formats: string[],
   dir: string,
+  timeZone: string,
 ): Promise<SavedFile[]> {
   return invoke<SavedFile[]>("export_report", {
     mode,
@@ -69,6 +70,7 @@ export function exportReport(
     lang,
     formats,
     dir,
+    timeZone,
   });
 }
 
@@ -99,6 +101,11 @@ export function relaunchElevated(): Promise<ElevateOutcome> {
 /** Rule text in `lang`, keyed by rule id, English fallback applied in Rust. */
 export function ruleTexts(lang: string): Promise<Record<string, RuleText>> {
   return invoke<Record<string, RuleText>>("rule_texts", { lang });
+}
+
+/** Every field each collector declares as a time, by collector (B.O.P.E, ADR 0132). */
+export function timeFields(): Promise<Record<string, string[]>> {
+  return invoke<Record<string, string[]>>("time_fields");
 }
 
 /** Each source's ordinary retention in `lang`, keyed by collector, English fallback applied in Rust (ADR 0061). */

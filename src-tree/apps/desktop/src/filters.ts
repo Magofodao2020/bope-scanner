@@ -6,6 +6,7 @@
 // evidence a view lists is decided in `bope-core::view`, and nothing here hides a row the view lists
 // unless the person asked for it with a filter they can see and clear.
 
+import { parseInstant } from "./time";
 import type { Evidence, Level, RuleMeta, RuleText } from "./types";
 
 export type LevelFilter = "all" | Level;
@@ -66,11 +67,9 @@ export function earliestTime(item: Evidence): number | null {
   let best: number | null = null;
   for (const observation of item.observations) {
     for (const value of Object.values(observation.fields)) {
-      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
-        const ms = Date.parse(value);
-        if (!Number.isNaN(ms) && (best === null || ms < best)) {
-          best = ms;
-        }
+      const instant = typeof value === "string" ? parseInstant(value) : null;
+      if (instant && (best === null || instant.getTime() < best)) {
+        best = instant.getTime();
       }
     }
   }

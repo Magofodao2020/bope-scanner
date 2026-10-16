@@ -173,6 +173,28 @@ pub fn rule_meta(state: State<'_, AppState>) -> BTreeMap<String, RuleMeta> {
         .collect()
 }
 
+/// Every field each collector declares as a time, on the timeline or not, keyed by collector, so the
+/// interface formats exactly those fields as times and never guesses one from a value's shape
+/// (B.O.P.E, ADR 0132).
+#[tauri::command]
+pub fn time_fields() -> BTreeMap<String, Vec<String>> {
+    bope_collectors::all()
+        .iter()
+        .map(|collector| {
+            (
+                collector.id().to_owned(),
+                collector
+                    .fields()
+                    .iter()
+                    .filter(|field| field.kind == bope_collectors::FieldKind::Timestamp)
+                    .map(|field| field.name.to_owned())
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .filter(|(_, fields)| !fields.is_empty())
+        .collect()
+}
+
 /// Each source's ordinary retention in `lang`, keyed by collector (ADR 0061).
 #[tauri::command]
 pub fn age_texts(
@@ -311,6 +333,7 @@ pub fn export_report(
     lang: String,
     formats: Vec<String>,
     dir: String,
+    time_zone: Option<String>,
 ) -> Result<Vec<SavedFile>, String> {
     let report = state
         .scan
@@ -327,7 +350,9 @@ pub fn export_report(
     let mut saved = Vec::new();
     for name in formats {
         let format = Format::parse(&name).ok_or_else(|| format!("unknown format {name}"))?;
-        let exported = export::export(&view, &state.bundle, &lang, format);
+        // The zone the window shows times in, so the files say what the window said (ADR 0132).
+        let exported =
+            export::export_in_zone(&view, &state.bundle, &lang, format, time_zone.as_deref());
         let file_name = format!("{stem}.{}", exported.extension);
         let path = dir.join(&file_name);
         std::fs::write(&path, &exported.bytes).map_err(|e| format!("{}: {e}", path.display()))?;

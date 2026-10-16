@@ -62,6 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             commands::report_view,
             commands::rule_texts,
             commands::rule_meta,
+            commands::time_fields,
             commands::age_texts,
             commands::relaunch_elevated,
             commands::code_links,

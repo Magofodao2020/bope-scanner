@@ -24,6 +24,10 @@ path = [
   "apps/desktop/pnpm-lock.yaml",
   "apps/desktop/pnpm-workspace.yaml",
   "apps/desktop/src-tauri/icons/**",
+  # B.O.P.E: the badge the project uses as its visual identity, provided by the project's owner.
+  "apps/desktop/src/assets/bope-logo.png",
+  # Screenshots of the interface over synthetic data only (docs/bope/capturas/LEIA-ME.md).
+  "docs/bope/capturas/*.png",
 ]
 precedence = "closest"
 SPDX-FileCopyrightText = ["2026 aeterna-rongroi contributors", "2026 B.O.P.E Scanner contributors"]

@@ -16,6 +16,7 @@ pub mod export;
 pub mod model;
 pub mod pdf;
 pub mod provenance;
+pub mod report_time;
 pub mod rules;
 pub mod view;
 

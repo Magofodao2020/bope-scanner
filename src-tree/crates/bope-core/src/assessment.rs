@@ -200,13 +200,14 @@ pub fn default_category(collector: &str) -> &'static str {
         "process" => "processes_memory",
         "prefetch" | "bam" | "pca" | "userassist" | "shimcache" | "feature_usage" | "muicache"
         | "shell_mru" | "amcache" | "shortcuts" | "srum" | "shellbags" => "execution",
-        "user_files" | "usn" | "fivem_dir" | "fivem_servers" | "roblox_files" | "mft" => "files",
+        "user_files" | "usn" | "fivem_dir" | "fivem_servers" | "roblox_files" | "mft"
+        | "recycle_bin" => "files",
         "autostart" | "hijack" | "defender_exclusion" | "wmi_subscription" => "persistence",
         "driver_service" => "drivers",
         "usb_device" | "pci_device" => "usb_devices",
         "browser_ext" | "powershell_text" => "browser_scripts",
         "net_config" | "net_adapter" => "network",
-        "evtx" | "windows_start" => "system_logs",
+        "evtx" | "windows_start" | "windows_service" => "system_logs",
         "posture" | "machine_identity" => "firmware_boot",
         _ => "other",
     }
@@ -220,6 +221,9 @@ pub fn source_family(collector: &str) -> &'static str {
             "file_listing"
         }
         "evtx" | "windows_start" => "event_logs",
+        // The Recycle Bin's `$I` files are their own record, not a folder listing (ADR 0131).
+        "recycle_bin" => "recycle_bin",
+        "windows_service" => "service_control_manager",
         "posture" | "machine_identity" => "firmware",
         other => match other {
             "prefetch" => "prefetch",

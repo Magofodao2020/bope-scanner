@@ -326,6 +326,10 @@ export interface RobloxTools {
 export interface ReportView {
   /** The Roblox tool correlation; absent from upstream snapshots. */
   roblox_tools?: RobloxTools;
+  /** `windows_service` observations, current state first (B.O.P.E, ADR 0130); absent when none. */
+  services?: Observation[];
+  /** `recycle_bin` observations (B.O.P.E, ADR 0131); SS mode keeps only the summary and catalog matches. */
+  recycle_bin?: Observation[];
   /** The B.O.P.E assessment of the report this view came from (ADR 0100); absent from upstream snapshots. */
   assessment?: Assessment;
   mode: Mode;
@@ -463,6 +467,8 @@ export interface ScanStep {
   gaps: number;
   found_rules: string[];
   elapsed_ms: number;
+  /** The collector running after this one; `null` after the last. */
+  next?: string | null;
 }
 
 export interface ScanStatus {
@@ -472,6 +478,10 @@ export interface ScanStatus {
   started_at: string | null;
   message: string | null;
   tier: ScanTier | null;
+  /** The collector running now; `null` when none is (building the report, or not running). */
+  current?: string | null;
+  /** A stop was asked for and the scan has not stopped yet. */
+  cancel_requested?: boolean;
 }
 
 export interface RuleMeta {

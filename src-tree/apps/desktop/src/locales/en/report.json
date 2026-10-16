@@ -415,7 +415,7 @@
     "col_level": "Level",
     "col_rule": "Check",
     "col_source": "Source",
-    "col_times": "Recorded times (UTC)",
+    "col_times": "Recorded times",
     "proximity": "Temporal proximity of {{minutes}} min between \"{{a}}\" and \"{{b}}\". Proximity is not causation.",
     "limits": "Limitations of this check"
   },

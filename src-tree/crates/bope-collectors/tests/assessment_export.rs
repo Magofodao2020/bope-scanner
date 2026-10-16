@@ -231,3 +231,77 @@ fn every_export_is_the_bytes_its_hash_names_and_html_is_escaped() {
     assert!(pdf_text.contains(&json_sha));
     assert!(!pdf_text.contains("fixtureuser"));
 }
+
+/// B.O.P.E, ADR 0132: the exported files write each time in UTC and in the zone the window showed,
+/// in the window's `DD/MM/AAAA HH:mm:ss`, with the kind of time; JSON keeps the recorded value; the
+/// services and Recycle Bin sections keep current state, history and artifact times apart.
+#[test]
+fn exports_write_times_like_the_window_and_keep_services_and_recycle_bin_apart() {
+    let (report, bundle) = scan_fixture("roblox-tool-history");
+    let mut view = view::for_mode(&report, Mode::SelfCheck).with_assessment(&report, &bundle);
+    let observe = |fields: serde_json::Value| bope_core::model::Observation {
+        collector: "windows_service".to_owned(),
+        fields: serde_json::from_value(fields).unwrap(),
+    };
+    view.services = vec![
+        observe(
+            serde_json::json!({"scope": "current", "service": "SysMain", "query": "ok",
+            "state": "stopped", "start_type": "disabled", "disabled": true,
+            "collected_at": "2026-10-16T13:00:04Z"}),
+        ),
+        observe(
+            serde_json::json!({"scope": "history", "service": "SysMain", "event": "state_change",
+            "event_id": 7036, "record_id": 41, "event_at": "2026-10-15T22:10:05Z",
+            "state_text": "stopped"}),
+        ),
+    ];
+    let text = String::from_utf8(
+        export::export_in_zone(
+            &view,
+            &bundle,
+            "pt-BR",
+            Format::Text,
+            Some("America/Sao_Paulo"),
+        )
+        .bytes,
+    )
+    .unwrap();
+    assert!(
+        text.contains("16/10/2026 13:00:04 UTC · 16/10/2026 10:00:04 (UTC\u{2212}03:00)"),
+        "{text}"
+    );
+    assert!(text.contains("no fuso America/Sao_Paulo"));
+    assert!(text.contains("SERVIÇOS DO WINDOWS"));
+    assert!(text.contains("não é, por si só, indício de trapaça"));
+    assert!(text.contains("(evento 7036, registro 41)"));
+    assert!(text.contains("Última modificação observada no artefato"));
+    assert!(
+        text.contains("Exclusão (Lixeira) · exato")
+            || text.contains("[Exclusão (Lixeira) · exato]")
+    );
+    let utc_only =
+        String::from_utf8(export::export(&view, &bundle, "pt-BR", Format::Text).bytes).unwrap();
+    assert!(utc_only.contains("16/10/2026 13:00:04 UTC"));
+    assert!(!utc_only.contains("UTC\u{2212}03:00"));
+    let json: serde_json::Value = serde_json::from_slice(
+        &export::export_in_zone(
+            &view,
+            &bundle,
+            "pt-BR",
+            Format::Json,
+            Some("America/Sao_Paulo"),
+        )
+        .bytes,
+    )
+    .unwrap();
+    assert_eq!(json["time_zone"], "America/Sao_Paulo");
+    assert_eq!(
+        json["view"]["services"][0]["fields"]["collected_at"],
+        "2026-10-16T13:00:04Z"
+    );
+    let html = String::from_utf8(
+        export::export_in_zone(&view, &bundle, "pt-BR", Format::Html, Some("Bad/Zone")).bytes,
+    )
+    .unwrap();
+    assert!(html.contains("horários em UTC; o JSON guarda o valor original em UTC"));
+}

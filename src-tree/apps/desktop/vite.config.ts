@@ -14,5 +14,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // A zone with an offset, so the tests see a local time that differs from UTC (B.O.P.E, ADR 0132).
+    env: { TZ: "America/Sao_Paulo" },
   },
 });

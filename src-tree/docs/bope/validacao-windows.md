@@ -90,6 +90,32 @@ Só numa VM de teste, nunca no PC de um jogador:
    Esperado: regra "Uma assinatura WMI permanente executa uma linha de comando ou um script" com
    `program` notepad.exe, SHA-256 e assinatura Microsoft. Remova depois com `Remove-WmiObject`.
 
+## Interface reformulada, serviços e Lixeira (ADR 0130–0132)
+
+1. **Navegação**: antes de verificar, só Scanner e Configurações estão habilitados; depois, todas as
+   páginas abrem e mostram o mesmo relatório. Nenhum banner "UNOFFICIAL BUILD" no topo; a indicação
+   aparece em Configurações e sobre, nos fatos da Visão geral e nos relatórios exportados.
+2. **Progresso**: durante a verificação, o módulo "em execução" muda a cada coleta; Lidos + Não verificados
+   + Só na avançada + Pendentes = total; o tempo decorrido sobe. Cancelar para depois do módulo atual e não
+   gera relatório.
+3. **Horários**: em Configurações, compare a hora local mostrada com o relógio do Windows (mesmo fuso e
+   deslocamento) e com "UTC primeiro". Um horário de evento no relatório HTML deve bater com o da tela.
+   Teste também com o Windows num fuso com horário de verão (por exemplo Europe/Lisbon).
+4. **Serviços**: compare a tabela "Estado atual" com
+   ```powershell
+   Get-Service PcaSvc, DiagTrack, DPS, SysMain, EventLog | Format-Table Name, Status, StartType
+   Get-CimInstance Win32_Service -Filter "Name='SysMain'" | Select ProcessId, StartName, PathName
+   ```
+   Na VM, pare e desative o SysMain (`Stop-Service SysMain; Set-Service SysMain -StartupType Disabled`),
+   verifique de novo e confira: estado Parado, inicialização Desativada, nenhuma cor de alerta, e no
+   histórico eventos 7036 e 7040 com os mesmos horários que o Visualizador de Eventos mostra
+   (`Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Service Control Manager'; Id=7036,7040} -MaxEvents 20`).
+   Restaure depois. Sem administrador, o resultado deve continuar legível (consulta só de estado).
+5. **Lixeira**: exclua dois arquivos de teste para a Lixeira, esvazie parte dela pelo Explorer e verifique.
+   Confira a "Última modificação observada no artefato" contra
+   `Get-ChildItem -Force C:\$Recycle.Bin\<seu SID> | Select Name, CreationTime, LastWriteTime` e a data de
+   exclusão de cada item contra a coluna "Data de exclusão" do Explorer. Nada deve ter sido restaurado.
+
 ## Registro dos resultados
 
 | Data | Windows (build) | Admin | Script (falhas) | Interface | Observações | Quem testou |

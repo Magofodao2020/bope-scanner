@@ -5,6 +5,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Interface rework (B.O.P.E, ADR 0130–0132)
+
+- New identity from the B.O.P.E badge (black, red, gold, white), app icons from the badge, side
+  navigation (Visão geral, Scanner, Evidências, Serviços do Windows, Lixeira, Linha do tempo, Relatórios,
+  Configurações e sobre), evidence details in a side panel, real filters, pagination of long lists.
+- Real scan progress: the module running (from Rust), read / not read / pending counts and elapsed time.
+- One way of showing times (`src/time.ts`, `bope_core::report_time`): `DD/MM/AAAA HH:mm:ss` local with
+  offset and UTC, kind and certainty of each time, value received kept; exports write the same.
+- `windows_service` collector (state of PcaSvc, DiagTrack, DPS, SysMain, EventLog and their System log
+  history; never a finding) and `recycle_bin` collector (Recycle Bin times, "última modificação observada
+  no artefato").
+- The `UNOFFICIAL BUILD` banner is removed from the window; the indication NOTICE 7(c) requires stays in
+  About, the report facts and the exports.
+
 ## [B.O.P.E 0.10.0] - 2026-10-16
 
 Based on the B.O.P.E Scanner 0.9.0 source. Four new forensic sources, `.rar`/`.7z` indexes, PDF export

@@ -13,11 +13,10 @@ interface Props {
   header: ReportHeader | null;
   /** The app's call for the header failed, so `header` will stay `null`. */
   headerFailed: boolean;
-  onBack: () => void;
 }
 
 /** Where this program's code is and how to check that this file came from it (ADR 0045). */
-export function About({ header, headerFailed, onBack }: Props) {
+export function About({ header, headerFailed }: Props) {
   const { t } = useTranslation();
   const [links, setLinks] = useState<CodeLinks | null>(null);
   const [linksFailed, setLinksFailed] = useState(false);
@@ -29,14 +28,11 @@ export function About({ header, headerFailed, onBack }: Props) {
   }, []);
 
   if (!header || !links) {
-    // A failed call is said, and Back still works; one in flight shows the title only.
+    // A failed call is said; one in flight shows the title only.
     return (
-      <section className="about" aria-labelledby="about-title">
-        <h2 id="about-title">{t("about.title")}</h2>
+      <section className="about panel" aria-labelledby="about-title">
+        <h3 id="about-title">{t("about.title")}</h3>
         {(headerFailed || linksFailed) && <p className="note">{t("about.load_failed")}</p>}
-        <button type="button" onClick={onBack}>
-          {t("actions.back")}
-        </button>
       </section>
     );
   }
@@ -45,8 +41,8 @@ export function About({ header, headerFailed, onBack }: Props) {
   const asset = `aeterna-rongroi-${provenance.version}-windows-x64.exe`;
 
   return (
-    <section className="about" aria-labelledby="about-title">
-      <h2 id="about-title">{t("about.title")}</h2>
+    <section className="about page-stack" aria-labelledby="about-title">
+      <h3 id="about-title">{t("about.title")}</h3>
       <p className="muted">{t("about.intro")}</p>
       <div className="cards">
         <article className="card">
@@ -67,7 +63,13 @@ export function About({ header, headerFailed, onBack }: Props) {
           <h3>{t("about.this_file")}</h3>
           <dl className="facts">
             <dt>{t("about.build")}</dt>
-            <dd>{provenance.official ? t("about.official") : t("banner.unofficial")}</dd>
+            <dd>
+              {provenance.official ? (
+                t("about.official")
+              ) : (
+                <span className="build-mark">{t("banner.unofficial")}</span>
+              )}
+            </dd>
             <dt>{t("about.version")}</dt>
             <dd>{provenance.version}</dd>
             <dt>{t("about.commit")}</dt>
@@ -100,6 +102,15 @@ export function About({ header, headerFailed, onBack }: Props) {
           </ol>
         </article>
         <article className="card wide">
+          <h3>{t("ui.about.credits_title")}</h3>
+          <p>{t("ui.about.credits")}</p>
+          <p>
+            <span className="build-mark">{t("banner.unofficial")}</span>{" "}
+            {t("banner.unofficial_body")}
+          </p>
+          <p className="small muted">{t("ui.about.licenses")}</p>
+        </article>
+        <article className="card wide">
           <h3>{t("about.no_web_title")}</h3>
           <p>{t("about.no_web_body")}</p>
           {/* ADR 0003: this wording is used verbatim wherever the program speaks about the network. */}
@@ -107,9 +118,6 @@ export function About({ header, headerFailed, onBack }: Props) {
           <p>{t("consent.webview")}</p>
         </article>
       </div>
-      <button type="button" onClick={onBack}>
-        {t("actions.back")}
-      </button>
     </section>
   );
 }

@@ -78,7 +78,7 @@
     "verify_title": "Check that this file was built from this code",
     "verify_hash": "Open this version's release page on GitHub and compare the SHA-256 above with the line for this file in SHA256SUMS.",
     "verify_attestation": "With the GitHub CLI:",
-    "verify_unofficial": "If this window shows UNOFFICIAL BUILD or the hash differs, do not rely on its results.",
+    "verify_unofficial": "This modified version always shows UNOFFICIAL BUILD here and in the report; if the hash differs from the one your community publishes, do not rely on its results.",
     "no_web_title": "Why no button opens a web page",
     "no_web_body": "This program has no network code, so it cannot open a web page. Copy a link into a browser, or scan its QR code with a phone.",
     "load_failed": "What this page shows could not be read from the program."
@@ -121,14 +121,14 @@
       "fastflags": "Roblox FastFlag files (ClientAppSettings.json in Roblox and launcher folders, FastFlag tools' settings): counts by kind and names of network/physics flags, never values",
       "processes_memory": "running programs, the Roblox player's loaded modules and executable memory counts (when its anti-cheat allows), programs running from user folders",
       "execution": "Prefetch, BAM, PCA, UserAssist, MuiCache, FeatureUsage and AppCompatCache records of programs; shortcuts (.lnk) to Roblox tools or programs in your folders; Amcache and the SRUM database (CPU use per program) from an existing shadow copy (none is created); in the advanced scan, ShellBags and the Open/Save dialog list, only paths with catalog names",
-      "files": "change-journal counts for watched folders; in the advanced scan, programs and scripts in Downloads, Desktop and Documents; catalog names in the change journal and inside .zip, .rar and .7z archives (index only, nothing extracted); in the advanced scan, catalog names in the NTFS Master File Table, including records of deleted files (metadata only)",
+      "files": "change-journal counts for watched folders; in the advanced scan, programs and scripts in Downloads, Desktop and Documents; catalog names in the change journal and inside .zip, .rar and .7z archives (index only, nothing extracted); in the advanced scan, catalog names in the NTFS Master File Table, including records of deleted files (metadata only); this account's Recycle Bin: for each item its $I (original path, size, deletion time) and the times of its $I and $R entries, never the deleted file itself",
       "persistence": "services, Run keys, scheduled tasks, Defender exclusions, IFEO debuggers, AppInit_DLLs, Winlogon, permanent WMI subscriptions (never a script's text)",
       "drivers": "registered drivers with their SHA-256 and known-vulnerable driver lists",
       "macros_peripherals": "macro tools and scripts by name, devices that act as keyboards or mice",
       "usb_devices": "USB, HID and PCI devices Windows remembers (never serial numbers), setupapi installs",
       "browser_scripts": "PowerShell logging and, in the advanced scan, browser extensions' permissions (never history, cookies or passwords)",
       "network": "hosts file names, proxy settings, firewall rules for game folders, network adapters (never addresses or traffic)",
-      "system_logs": "how many events of each kind the event logs hold and when, log clearing records",
+      "system_logs": "how many events of each kind the event logs hold and when, log clearing records; the state of five Windows services (PcaSvc, DiagTrack, DPS, SysMain, EventLog) from the Service Control Manager, query rights only, and their state and start-type events in the System log",
       "firmware_boot": "Secure Boot, memory integrity, TPM, test signing, IOMMU, BIOS identity, virtual-machine hints",
       "other": "what Windows says it is, Windows modifications, installed programs"
     },
@@ -163,5 +163,252 @@
     "failed_title": "The check could not run",
     "failed_body": "Nothing was saved.",
     "already": "A check is already running."
+  },
+  "ui": {
+    "all": "All",
+    "close": "Close",
+    "brand_line": "Offline PC check · evidence, never a verdict",
+    "scanned_at": "Scanned",
+    "nav": {
+      "label": "Sections",
+      "overview": "Overview",
+      "scanner": "Scanner",
+      "evidence": "Evidence",
+      "services": "Windows services",
+      "recycle": "Recycle Bin",
+      "timeline": "Timeline",
+      "reports": "Reports",
+      "settings": "Settings & about",
+      "after_scan": "Available after a check finishes"
+    },
+    "mode": {
+      "self": "Self check",
+      "ss": "SS mode"
+    },
+    "state": {
+      "loading": "Loading…",
+      "loading_report": "Reading the report…",
+      "report_failed": "The report could not be read."
+    },
+    "pager": {
+      "label": "Pages",
+      "previous": "Previous",
+      "next": "Next",
+      "range": "{{from}}–{{to}} of {{total}}"
+    },
+    "scan": {
+      "starting": "Starting the check…",
+      "building": "Building the report…",
+      "measured": "Read",
+      "unmeasured": "Not read",
+      "not_consented": "Advanced only",
+      "pending": "To run",
+      "elapsed": "Elapsed",
+      "running": "running now",
+      "waiting": "waiting",
+      "done_title": "Check finished",
+      "open_report": "Open the report",
+      "new": "New check"
+    },
+    "overview": {
+      "tools": "Roblox tools",
+      "tools_note": "Correlated across every source; see Evidence",
+      "not_read": "Not read",
+      "services_value": "{{running}} of {{total}} running",
+      "services_note": "Current state and System log history",
+      "recycle_value": "{{count}} items",
+      "recycle_note": "Times of this account's Recycle Bin",
+      "timeline_value": "{{count}} times",
+      "timeline_note": "Every time the view may show, in order",
+      "facts": "About this check",
+      "mode": "Who sees it",
+      "scanned_at": "Scan time",
+      "to_reports": "Save the report"
+    },
+    "evidence": {
+      "state": "State",
+      "category": "Category",
+      "source": "Source",
+      "first_time": "First time",
+      "observed": "Observed ({{count}})",
+      "raw": "Raw data (JSON)",
+      "fields": "Fields",
+      "shown": "{{shown}} of {{total}} shown"
+    },
+    "time": {
+      "local": "Local",
+      "received": "Value received",
+      "kind_label": "Kind",
+      "certainty_label": "Certainty",
+      "unrecognised": "Not a time this program reads; shown exactly as received",
+      "unrecognised_short": "format not recognised",
+      "kind": {
+        "created": "Created",
+        "modified": "Modified",
+        "accessed": "Accessed",
+        "changed": "Metadata changed",
+        "execution": "Execution",
+        "first_seen": "First recorded",
+        "last_seen": "Last recorded",
+        "registered": "Registered (key write)",
+        "installed": "Installed",
+        "deleted": "Deleted (Recycle Bin)",
+        "event": "Event",
+        "service_event": "Service event",
+        "system_start": "System start",
+        "connected": "Device connected",
+        "removed": "Device removed",
+        "collected": "Collected",
+        "scan": "Scan",
+        "range_start": "Range start",
+        "range_end": "Range end",
+        "recorded": "Recorded time"
+      },
+      "certainty": {
+        "exact": "exact",
+        "approximate": "approximate",
+        "uncertain": "uncertain (file time, can be set)"
+      }
+    },
+    "timeline": {
+      "zone_note": "Times are shown in {{zone}}; hover a time for UTC and the value as received.",
+      "unread": "{{count}} sources of times not read",
+      "kind": "Kind of time",
+      "certainty": "Certainty",
+      "not_exact": "Not exact",
+      "from": "From",
+      "to": "To",
+      "none": "No time matches these filters."
+    },
+    "services": {
+      "intro": "A stopped or disabled service is not, on its own, a sign of cheating: tuning guides, editions, policies and updates stop these services. It only says why another source may hold less.",
+      "not_read": "The services could not be read.",
+      "current_title": "Current state",
+      "source_scm": "Source: Service Control Manager, query rights only",
+      "partial": "Some services could not be queried: {{reason}}",
+      "col_service": "Service",
+      "col_state": "State",
+      "col_start": "Start type",
+      "col_account": "Account",
+      "col_pid": "PID",
+      "col_collected": "Collected",
+      "col_when": "When",
+      "col_event": "Event",
+      "col_recorded": "As recorded",
+      "col_record": "Event · record",
+      "paths": "Program paths",
+      "not_reported": "not reported",
+      "disabled_note": "disabled",
+      "history_title": "History in the System log",
+      "source_log": "Source: System.evtx, read-only",
+      "history_intro": "Events 7034, 7036, 7040 and 7045 of the Service Control Manager for these services, newest first. The log keeps what its size allows; an older change may no longer be in it.",
+      "history_not_read": "The history could not be read: {{reason}}",
+      "history_none": "The System log holds no event of these services.",
+      "span": "The System log covers",
+      "state": {
+        "running": "Running",
+        "stopped": "Stopped",
+        "paused": "Paused",
+        "start_pending": "Starting",
+        "stop_pending": "Stopping",
+        "continue_pending": "Resuming",
+        "pause_pending": "Pausing",
+        "other": "Other"
+      },
+      "start": {
+        "automatic": "Automatic",
+        "manual": "Manual",
+        "disabled": "Disabled",
+        "boot": "Boot",
+        "system": "System",
+        "other": "Other"
+      },
+      "query": {
+        "ok": "read",
+        "not_installed": "Not installed",
+        "access_denied": "Access denied",
+        "failed": "Query failed"
+      },
+      "event": {
+        "state_change": "State change",
+        "start_type_change": "Start type change",
+        "unexpected_end": "Ended unexpectedly",
+        "installed": "Installed",
+        "log_span": "Log span"
+      },
+      "matched": {
+        "service_name": "by service name",
+        "display_name": "by display name"
+      },
+      "role": {
+        "pca": "Program Compatibility Assistant; feeds the PCA records of programs that ran.",
+        "diagtrack": "Connected User Experiences and Telemetry.",
+        "dps": "Diagnostic Policy Service; feeds diagnostics, including SRUM data.",
+        "sysmain": "SysMain (Superfetch); maintains Prefetch.",
+        "eventlog": "Windows Event Log; writes the event logs every log source reads."
+      }
+    },
+    "recycle": {
+      "intro": "This account's Recycle Bin on the system drive, read without opening any deleted file. Nothing is restored, moved or removed. An item missing from the bin is never read as a deliberate deletion.",
+      "not_read": "The Recycle Bin could not be read.",
+      "summary_title": "The bin as a whole",
+      "drive": "Drive {{drive}}",
+      "last_change": "Last modification observed in the artifact",
+      "last_change_source": {
+        "folder": "Observed on the bin folder's own write time",
+        "entry": "Observed on one of its $I/$R entries"
+      },
+      "last_change_note": "There is no single \"modified at\" for the Recycle Bin. This is the newest write time found on the folder or its entries. Emptying the bin also writes the folder, so a folder time newer than every entry is consistent with an emptying — and with anything else that wrote the folder.",
+      "newest_deletion": "Newest deletion recorded in a $I",
+      "newest_deletion_note": "Written by Windows inside the $I file when the item was moved to the bin",
+      "oldest_deletion": "Oldest deletion recorded",
+      "folder_created": "Folder created",
+      "folder_modified": "Folder last written",
+      "entries": "Entries",
+      "entries_value": "{{index}} $I · {{content}} $R",
+      "orphans": "Without partner",
+      "orphans_value": "{{index}} $I without $R · {{content}} $R without $I",
+      "orphans_note": "A $I without its $R: the content was removed by other means. A $R without its $I: its index is gone. Neither says who did it or why.",
+      "unreadable": "$I not readable",
+      "capped": "More $I files than this program reads in one check; the rest were counted, not read.",
+      "items_title": "Items",
+      "ss_note": "SS mode shows only items whose name matches the Roblox tool catalog.",
+      "no_items": "No item to show.",
+      "search": "Original path",
+      "show": "Show",
+      "only_catalog": "Catalog matches only",
+      "only_no_content": "Without $R only",
+      "col_item": "Item (original path)",
+      "col_deleted": "Deleted",
+      "col_index": "$I entry",
+      "col_content": "$R entry (last write)",
+      "size": "{{size}} bytes",
+      "catalog": "Catalog: {{tool}}",
+      "no_time": "no time recorded",
+      "no_deletion": "No deletion recorded",
+      "no_content": "No $R",
+      "folder": "folder",
+      "content_note": "The $R's last-write time is usually kept from the file when it was moved to the bin on the same drive, but any program can set it: it is the artifact's time, not the file's history."
+    },
+    "reports": {
+      "formats_title": "Formats",
+      "html": "For reading in a browser; offline, no script, no request to any host.",
+      "txt": "Plain text, for pasting in a ticket.",
+      "json": "The view as data, with ISO 8601 times exactly as recorded.",
+      "pdf": "For printing or attaching; carries the SHA-256 of the equivalent JSON.",
+      "times": "Every file writes each time in UTC (ISO 8601 in JSON) and, in HTML, TXT and PDF, also in this computer's zone ({{zone}}), with the same kinds of time this window shows."
+    },
+    "settings": {
+      "title": "Display",
+      "time_title": "Times",
+      "time_local": "Local time first",
+      "time_utc": "UTC first",
+      "time_note": "Changes only how this window shows times. Every time is kept as recorded, in UTC, and the other reading stays one line below."
+    },
+    "about": {
+      "credits_title": "Credits and licence",
+      "credits": "B.O.P.E Scanner is a modified version of aeterna-rongroi 0.9.0 (© 2026 aeterna-rongroi contributors), distributed under GPL-3.0-or-later with the additional terms of its NOTICE file. It is not an aeterna-rongroi build.",
+      "licenses": "Code: GPL-3.0-or-later. Rules and rule translations: CC-BY-SA-4.0. Vulnerable-driver list: LOLDrivers, Apache-2.0. Anuphan typeface: OFL-1.1. See NOTICE and LICENSES/."
+    }
   }
 }

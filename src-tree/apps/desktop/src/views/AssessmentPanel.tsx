@@ -7,6 +7,8 @@
 
 import { useTranslation } from "react-i18next";
 import type { Assessment, ModuleState, RuleText } from "../types";
+import { Badge, LEVEL_LOOK } from "../ui/Badge";
+import { TimeValue } from "../ui/TimeValue";
 
 interface Props {
   assessment: Assessment;
@@ -27,7 +29,7 @@ export function AssessmentPanel({ assessment, texts, category, onCategory }: Pro
   const { t } = useTranslation("report");
   const title = (id: string) => texts[id]?.title ?? id;
   return (
-    <section className="assessment" aria-labelledby="assessment-title">
+    <section className="assessment page-stack" aria-labelledby="assessment-title">
       <div className={`verdict verdict-${assessment.conclusion}`} role="status">
         <h2 id="assessment-title">{t(`conclusion.${assessment.conclusion}`)}</h2>
         <p>{t(`conclusion_note.${assessment.conclusion}`)}</p>
@@ -62,35 +64,39 @@ export function AssessmentPanel({ assessment, texts, category, onCategory }: Pro
       </ul>
 
       {assessment.supporting.length > 0 && (
-        <section className="supporting" aria-labelledby="supporting-title">
+        <section className="supporting panel" aria-labelledby="supporting-title">
           <h3 id="supporting-title">{t("assessment.supporting")}</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>{t("assessment.col_level")}</th>
-                <th>{t("assessment.col_rule")}</th>
-                <th>{t("assessment.col_source")}</th>
-                <th>{t("assessment.col_times")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assessment.supporting.map((item) => (
-                <tr key={item.rule_id}>
-                  <td>
-                    <span className={`chip chip-${item.level}`}>
-                      {t(`common:level.${item.level}`)}
-                    </span>
-                  </td>
-                  <td>{title(item.rule_id)}</td>
-                  <td>{t(`source.${item.source}`, { defaultValue: item.source })}</td>
-                  <td className="times">
-                    {item.earliest ?? "—"}
-                    {item.latest && item.latest !== item.earliest ? ` → ${item.latest}` : ""}
-                  </td>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("assessment.col_level")}</th>
+                  <th>{t("assessment.col_rule")}</th>
+                  <th>{t("assessment.col_source")}</th>
+                  <th>{t("assessment.col_times")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {assessment.supporting.map((item) => (
+                  <tr key={item.rule_id}>
+                    <td>
+                      <Badge {...LEVEL_LOOK[item.level]} label={t(`common:level.${item.level}`)} />
+                    </td>
+                    <td>{title(item.rule_id)}</td>
+                    <td>{t(`source.${item.source}`, { defaultValue: item.source })}</td>
+                    <td className="times">
+                      {item.earliest ? <TimeValue value={item.earliest} compact /> : "—"}
+                      {item.latest && item.latest !== item.earliest && (
+                        <div>
+                          → <TimeValue value={item.latest} compact />
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {assessment.proximity.map((pair) => (
             <p key={`${pair.a}-${pair.b}`} className="proximity">
               {t("assessment.proximity", {
