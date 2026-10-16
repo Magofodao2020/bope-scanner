@@ -9,9 +9,11 @@
 //!
 //! 1. **Hits** (`scope: hit`): every observation whose name, path or parent folder matches the tool
 //!    catalog ([`crate::catalog`]) becomes one hit, labelled with the **evidence class** its source
-//!    can support — `execution` (Prefetch, BAM, PCA, `UserAssist`, `FeatureUsage`), `inventory`
-//!    (`ShimCache`, Amcache), `reference` (shortcuts, Explorer lists, `MuiCache`), `file_history`
-//!    (the change journal), `deleted` (the Recycle Bin), `current_file`, `archive_content`,
+//!    can support — `execution` (Prefetch, BAM, PCA, `UserAssist`, `FeatureUsage`), `resource_usage`
+//!    (SRUM recording CPU time, which counts as execution), `inventory` (`ShimCache`, Amcache),
+//!    `reference` (shortcuts, Explorer lists, ShellBags, Open/Save dialog, `MuiCache`, a SRUM id with
+//!    no CPU time), `file_history` (the change journal), `deleted` (the Recycle Bin, a journal deletion,
+//!    a Master File Table record no longer in use), `current_file`, `archive_content`,
 //!    `executor_layout`, `executor_scripts`, `installation`, `persistence`, `running`,
 //!    `process_interaction` (a module loaded into the Roblox player from the tool's folder) and
 //!    `client_configuration`. A hit from a history source whose path is drive-rooted is checked:
@@ -85,7 +87,7 @@ static REASONS: [UnmeasuredReason; 1] = [UnmeasuredReason::NotWindows];
 
 /// Every source a hit can come from, with the evidence class it supports and the field holding its
 /// time. Sources with more than one kind of row refine the class per row in [`class_of`].
-const SOURCES: [(&str, &str, &str); 19] = [
+const SOURCES: [(&str, &str, &str); 23] = [
     ("prefetch", "execution", "last_run"),
     ("bam", "execution", "last_run"),
     ("pca", "execution", "last_run"),
@@ -94,14 +96,18 @@ const SOURCES: [(&str, &str, &str); 19] = [
     ("muicache", "reference", ""),
     ("shimcache", "inventory", "file_modified"),
     ("amcache", "inventory", "key_written"),
+    ("srum", "resource_usage", "last_seen"),
     ("shortcuts", "reference", "modified"),
     ("shell_mru", "reference", ""),
+    ("shellbags", "reference", "modified"),
     ("usn", "file_history", "last_seen"),
+    ("mft", "file_history", "si_modified"),
     ("roblox_files", "current_file", "modified"),
     ("user_files", "current_file", "modified"),
     ("executor_footprint", "executor_layout", "modified"),
     ("installed_programs", "installation", ""),
     ("autostart", "persistence", ""),
+    ("wmi_subscription", "persistence", ""),
     ("process", "running", "started_at"),
     ("roblox_process", "running", "started_at"),
     ("fastflags", "client_configuration", "modified"),
@@ -167,6 +173,17 @@ fn number(o: &Observation, field: &str) -> u64 {
         .unwrap_or(0)
 }
 
+/// The independent source family of one hit. A file the Master File Table lists as in use is the same
+/// record a folder listing reads, so it counts with the listing and never as a second family
+/// (ADR 0125).
+fn hit_family(source: &str, class: &str) -> &'static str {
+    if source == "mft" && class == "current_file" {
+        "file_listing"
+    } else {
+        source_family(source)
+    }
+}
+
 /// The class a row of `collector` supports, refining the source's default by the row's own scope.
 fn class_of(collector: &str, default: &'static str, o: &Observation) -> Option<&'static str> {
     Some(match collector {
@@ -194,6 +211,20 @@ fn class_of(collector: &str, default: &'static str, o: &Observation) -> Option<&
         "roblox_process" => match text(o, "scope") {
             Some("roblox_module") => "process_interaction",
             Some("user_location_process") => "running",
+            _ => return None,
+        },
+        "mft" => match text(o, "scope") {
+            Some("entry") if flag(o, "in_use") => "current_file",
+            Some("entry") => "deleted",
+            _ => return None,
+        },
+        "wmi_subscription" => match text(o, "scope") {
+            Some("consumer" | "filter") if !flag(o, "known_default") => "persistence",
+            _ => return None,
+        },
+        "srum" => match text(o, "scope") {
+            Some("app") if flag(o, "used_cpu") => "resource_usage",
+            Some("app") => "reference",
             _ => return None,
         },
         "amcache" => match text(o, "scope") {
@@ -389,7 +420,10 @@ pub fn correlate(host: &dyn Host, runs: &[CollectorRun]) -> CollectorRun {
                     "executor_layout" | "executor_scripts" | "process_interaction"
                 )
                 || collector == "fastflags";
-            let historical = matches!(class, "execution" | "inventory" | "reference");
+            let historical = matches!(
+        class,
+        "execution" | "inventory" | "reference" | "resource_usage"
+    );
             let exists = if historical
                 && exists_checks < MAX_EXISTS_CHECKS
                 && let Some(p) = path.as_deref().filter(|p| checkable(p))
@@ -436,7 +470,7 @@ pub fn correlate(host: &dyn Host, runs: &[CollectorRun]) -> CollectorRun {
                 .with("matched_on", h.matched_on)
                 .with("evidence_class", h.class)
                 .with("source", h.source.clone())
-                .with("family", source_family(&h.source))
+                .with("family", hit_family(&h.source, h.class))
                 .with("name", h.name.clone())
                 .maybe("path", h.path.clone())
                 .maybe("exists", h.exists)
@@ -486,10 +520,15 @@ fn summary(tool: &'static Tool, group: &[&Hit]) -> Observation {
                     || contextual.contains(&location::last_segment(&h.name).to_lowercase()))
         })
         .collect();
-    let families: BTreeSet<&str> = counted.iter().map(|h| source_family(&h.source)).collect();
+    let families: BTreeSet<&str> = counted
+        .iter()
+        .map(|h| hit_family(&h.source, h.class))
+        .collect();
     let classes: BTreeSet<&str> = group.iter().map(|h| h.class).collect();
     let counted_classes: BTreeSet<&str> = counted.iter().map(|h| h.class).collect();
-    let execution = counted_classes.contains("execution") || counted_classes.contains("running");
+    let execution = counted_classes.contains("execution")
+        || counted_classes.contains("running")
+        || counted_classes.contains("resource_usage");
     let interaction = counted_classes.contains("process_interaction");
     let strong_layout =
         counted_classes.contains("executor_layout") || counted_classes.contains("executor_scripts");
@@ -653,6 +692,112 @@ mod tests {
         assert_eq!(solara.fields["missing_now"], true, "{run:?}");
         assert_eq!(solara.fields["first_seen"], "2026-10-14T20:00:00Z");
         assert!(solara.fields["families_count"].as_u64().unwrap() >= 2);
+    }
+
+    #[test]
+    fn srum_cpu_time_counts_as_execution_and_a_freed_mft_record_as_deleted() {
+        let runs = vec![
+            measured(
+                "srum",
+                vec![
+                    obs("srum", &[("scope", "database".into())]),
+                    obs(
+                        "srum",
+                        &[
+                            ("scope", "app".into()),
+                            ("name", "Fluxus.exe".into()),
+                            (
+                                "path",
+                                r"\Device\HarddiskVolume3\Users\a\Downloads\Solara\Fluxus.exe".into(),
+                            ),
+                            ("used_cpu", true.into()),
+                            ("tool_id", "fluxus".into()),
+                            ("match_kind", "known_tool".into()),
+                            ("last_seen", "2026-10-14T21:00:00Z".into()),
+                        ],
+                    ),
+                ],
+            ),
+            measured(
+                "mft",
+                vec![obs(
+                    "mft",
+                    &[
+                        ("scope", "entry".into()),
+                        ("in_use", false.into()),
+                        ("name", "Fluxus.exe".into()),
+                        (
+                            "path",
+                            r"C:\Users\a\Downloads\Solara\Fluxus.exe".into(),
+                        ),
+                        ("tool_id", "fluxus".into()),
+                        ("match_kind", "known_tool".into()),
+                        ("si_modified", "2026-10-14T19:00:00Z".into()),
+                    ],
+                )],
+            ),
+        ];
+        let run = correlate(&host(), &runs);
+        let fluxus = &tools(&run)["fluxus"];
+        assert_eq!(fluxus.fields["execution"], true);
+        assert_eq!(fluxus.fields["deleted"], true);
+        assert_eq!(fluxus.fields["status"], "corroborated");
+        assert_eq!(fluxus.fields["families"], "mft, srum");
+        let CollectorRun::Measured { observations, .. } = &run else {
+            panic!()
+        };
+        for source in ["srum", "mft", "shellbags", "wmi_subscription"] {
+            assert!(
+                observations
+                    .iter()
+                    .any(|o| o.fields["scope"] == "source" && o.fields["source"] == source),
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_in_use_mft_entry_is_the_same_family_as_the_folder_listing() {
+        let runs = vec![
+            measured(
+                "roblox_files",
+                vec![obs(
+                    "roblox_files",
+                    &[
+                        ("scope", "file".into()),
+                        ("name", "Fluxus.exe".into()),
+                        ("path", r"C:\Users\a\Downloads\Fluxus.exe".into()),
+                    ],
+                )],
+            ),
+            measured(
+                "mft",
+                vec![obs(
+                    "mft",
+                    &[
+                        ("scope", "entry".into()),
+                        ("in_use", true.into()),
+                        ("name", "Fluxus.exe".into()),
+                        ("path", r"C:\Users\a\Downloads\Fluxus.exe".into()),
+                    ],
+                )],
+            ),
+            measured(
+                "shellbags",
+                vec![obs(
+                    "shellbags",
+                    &[
+                        ("list", "shellbag".into()),
+                        ("name", "Fluxus".into()),
+                        ("path", r"E:\Ferramentas\Solara".into()),
+                    ],
+                )],
+            ),
+        ];
+        let run = correlate(&host(), &runs);
+        let fluxus = &tools(&run)["fluxus"];
+        assert_eq!(fluxus.fields["families"], "file_listing, shellbags");
+        assert_eq!(fluxus.fields["execution"], false);
     }
 
     #[test]

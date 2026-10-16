@@ -15,6 +15,10 @@
 //! one of those places whose name matches, or that sits in Downloads, Desktop or Temp, is opened as
 //! far as its central directory (names only, nothing extracted; [`bope_parsers::zip_names`]) and its
 //! matching entries are kept, with whether it holds an executor's `autoexec` + `workspace` layout.
+//! `.rar` (RAR 4 and 5) and `.7z` archives are listed the same way from their headers
+//! ([`bope_parsers::archive_names`], ADR 0128): RAR file headers are read one at a time with the packed
+//! data between them skipped unread, and a 7z end header is decompressed only up to its declared size.
+//! An archive whose headers are encrypted is reported as such (`encrypted_headers`), with no names.
 //!
 //! The account's own Recycle Bin (`C:\$Recycle.Bin\<SID>`) is read too: each `$I` file says where a
 //! deleted item was and when it was deleted (`scope: recycled`). That is the one place here that shows
@@ -23,14 +27,14 @@
 //! **Limits.** Budgets of time ([`BUDGET`]), listings, hashes and archive bytes. Folders that hold
 //! other software's data (`Microsoft`, `Packages`, browsers' profiles, `node_modules`) are not entered.
 //! A match is a name: a program can be renamed to anything, and an ordinary file can carry a name that
-//! matches. RAR and 7-Zip archives are not opened.
+//! matches. Self-extracting archives and split archives past their first part are not listed.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
 use bope_core::model::{CollectorRun, DiscriminatorGaps, Observation, UnmeasuredReason};
 use bope_host::{DirEntryInfo, Host, Platform};
-use bope_parsers::{recycle, zip_names};
+use bope_parsers::{archive_names, recycle, zip_names};
 
 use crate::catalog::{self, Match, MatchKind};
 use crate::common::{Fields, env_folder, hash_and_signature, join, unmeasured, user_profile};
@@ -49,6 +53,10 @@ pub const MAX_HASHES: usize = 80;
 pub const MAX_ARCHIVE_BYTES: u64 = 32 * 1024 * 1024;
 /// Most archives opened in one scan.
 pub const MAX_ARCHIVES: usize = 25;
+/// Largest `.rar` or `.7z` listed: only its headers are read, so this is far above the zip limit.
+pub const MAX_INDEXED_ARCHIVE_BYTES: u64 = 8 * 1024 * 1024 * 1024;
+/// Most reads made to list one `.rar` or `.7z`.
+pub const MAX_ARCHIVE_READS: usize = 25_000;
 
 /// Folders never entered: other software's data, large and irrelevant.
 const SKIP: [&str; 12] = [
@@ -66,12 +74,15 @@ const SKIP: [&str; 12] = [
     "crashdumps",
 ];
 
-static FIELDS: [Field; 23] = [
+static FIELDS: [Field; 26] = [
     Field::text("alias"),
     Field::text("archive"),
+    Field::text("archive_format"),
     Field::boolean("common_legitimate"),
     Field::timestamp("created"),
     Field::timestamp("deleted_at"),
+    Field::boolean("encrypted"),
+    Field::boolean("encrypted_headers"),
     Field::boolean("executor_layout"),
     Field::text("extension"),
     Field::boolean("in_bin"),
@@ -172,9 +183,12 @@ impl Walk<'_> {
                 self.entry(place, &path, child, &m);
             }
             if child.is_file {
-                let is_zip = location::extension(&child.name).as_deref() == Some("zip");
+                let is_archive = matches!(
+                    location::extension(&child.name).as_deref(),
+                    Some("zip" | "rar" | "7z")
+                );
                 let loose = matches!(place, "downloads" | "desktop" | "temp");
-                if is_zip && (best.is_some() || loose) {
+                if is_archive && (best.is_some() || loose) {
                     self.archive(place, &path, child);
                 }
                 continue;
@@ -231,24 +245,85 @@ impl Walk<'_> {
         self.observations.push(fields.observe(ID));
     }
 
+    /// The names in a `.rar` or `.7z`, read from its headers through the host at offsets.
+    fn indexed_archive(&mut self, path: &str) -> Option<archive_names::Listing> {
+        let size = self.host.file_size(path).ok().flatten()?;
+        let deadline = self.deadline;
+        let mut reads = 0;
+        let host = self.host;
+        archive_names::list(
+            |offset, len| {
+                reads += 1;
+                if reads > MAX_ARCHIVE_READS || Instant::now() >= deadline {
+                    return None;
+                }
+                host.read_file_at(path, offset, len.min(bope_host::MAX_READ_AT_BYTES))
+                    .ok()
+                    .flatten()
+            },
+            size,
+        )
+        .ok()
+    }
+
+    #[allow(clippy::too_many_lines)]
     fn archive(&mut self, place: &'static str, path: &str, entry: &DirEntryInfo) {
-        if self.archives >= MAX_ARCHIVES || entry.size.is_some_and(|s| s > MAX_ARCHIVE_BYTES) {
+        let extension = location::extension(path);
+        let indexed = matches!(extension.as_deref(), Some("rar" | "7z"));
+        let limit = if indexed {
+            MAX_INDEXED_ARCHIVE_BYTES
+        } else {
+            MAX_ARCHIVE_BYTES
+        };
+        if self.archives >= MAX_ARCHIVES || entry.size.is_some_and(|s| s > limit) {
             return;
         }
         if self.out_of_budget() {
             return;
         }
         self.archives += 1;
-        let Ok(Some(bytes)) = self.host.read_file(path) else {
-            return;
+        // (name, size, encrypted)
+        let (format, entries, encrypted_headers): (&str, Vec<(String, u64, bool)>, bool) = if indexed
+        {
+            let Some(listing) = self.indexed_archive(path) else {
+                return;
+            };
+            (
+                listing.format.as_str(),
+                listing
+                    .entries
+                    .iter()
+                    .map(|e| {
+                        let name = if e.directory {
+                            format!("{}/", e.name.trim_end_matches('/'))
+                        } else {
+                            e.name.clone()
+                        };
+                        (name, e.size, e.encrypted)
+                    })
+                    .collect(),
+                listing.encrypted_headers,
+            )
+        } else {
+            let Ok(Some(bytes)) = self.host.read_file(path) else {
+                return;
+            };
+            let Ok(listing) = zip_names::list(&bytes) else {
+                return;
+            };
+            (
+                "zip",
+                listing
+                    .entries
+                    .iter()
+                    .map(|e| (e.name.clone(), u64::from(e.size), false))
+                    .collect(),
+                false,
+            )
         };
-        let Ok(listing) = zip_names::list(&bytes) else {
-            return;
-        };
-        let lower: Vec<String> = listing
-            .entries
+        let lower: Vec<String> = entries
             .iter()
-            .map(|e| e.name.to_lowercase().replace('\\', "/"))
+            .map(|e| e.0.to_lowercase().replace('\\', "/"))
             .collect();
         let has_dir = |d: &str| {
             lower
@@ -256,7 +331,7 @@ impl Walk<'_> {
                 .any(|n| n.starts_with(&format!("{d}/")) || n.contains(&format!("/{d}/")))
         };
         let layout = has_dir("autoexec") && has_dir("workspace");
-        if layout {
+        if layout || encrypted_headers {
             self.observations.push(
                 Fields::new()
                     .with(DISCRIMINATOR, "archive")
@@ -264,15 +339,17 @@ impl Walk<'_> {
                     .with(location::FIELD, location::classify(path).as_str())
                     .with("name", location::last_segment(path).to_owned())
                     .with("path", path.to_owned())
-                    .with("executor_layout", true)
+                    .with("archive_format", format)
+                    .with("executor_layout", layout)
+                    .with("encrypted_headers", encrypted_headers)
                     .maybe("size", entry.size)
                     .time("modified", entry.modified)
                     .observe(ID),
             );
         }
         let mut kept = 0;
-        for inner in &listing.entries {
-            let name = inner.name.trim_end_matches('/');
+        for (inner, size, encrypted) in &entries {
+            let name = inner.trim_end_matches('/');
             let Some(m) = catalog::match_name(name).into_iter().next() else {
                 continue;
             };
@@ -288,9 +365,11 @@ impl Walk<'_> {
                         .with("place", place)
                         .with(location::FIELD, location::classify(path).as_str())
                         .with("archive", path.to_owned())
+                        .with("archive_format", format)
                         .with("name", shown)
                         .with("path", format!(r"{path}\{}", name.replace('/', "\\")))
-                        .with("size", inner.size)
+                        .with("size", *size)
+                        .with("encrypted", *encrypted)
                         .with("executor_layout", layout),
                     &m,
                     path,
@@ -485,6 +564,15 @@ mod tests {
             134_353_296_000_000_000,
         ));
         let other = crate::common::hex(&recycle::build(r"C:\Users\a\Documents\taxes.pdf", 1, 1));
+        let rar = crate::common::hex(&bope_parsers::archive_names::build_rar5(
+            &["Wave/", "Wave/Wave.exe", "Wave/autoexec/", "Wave/workspace/"],
+            false,
+        ));
+        let seven = crate::common::hex(&bope_parsers::archive_names::build_7z(
+            &["tools/", "tools/KRNL.exe", "tools/notes.txt"],
+            true,
+        ));
+        let locked = crate::common::hex(&bope_parsers::archive_names::build_rar5(&[], true));
         let yaml = format!(
             r"platform: windows
 account_sid: 'S-1-5-21-1-2-3-1001'
@@ -506,6 +594,9 @@ filesystem:
     - name: pack.zip
       size: 100
       hex: '{zip}'
+    - {{ name: wave.rar, size: 100, hex: '{rar}' }}
+    - {{ name: misc.7z, size: 100, hex: '{seven}' }}
+    - {{ name: locked.rar, size: 100, hex: '{locked}' }}
   'C:\Users\a\AppData\Local':
     - {{ name: Bloxstrap, directory: true }}
     - {{ name: Microsoft, directory: true }}
@@ -572,6 +663,30 @@ filesystem:
             .unwrap();
         assert_eq!(inner.fields["tool_id"], "solara");
         assert_eq!(inner.fields["executor_layout"], true);
+    }
+
+    #[test]
+    fn rar_and_7z_indexes_are_listed_and_encrypted_headers_reported() {
+        let all = observations();
+        let wave = all
+            .iter()
+            .find(|o| o.fields["scope"] == "archive_entry" && o.fields["name"] == "Wave.exe")
+            .unwrap();
+        assert_eq!(wave.fields["archive_format"], "rar5");
+        assert_eq!(wave.fields["executor_layout"], true);
+        assert_eq!(wave.fields["path"], r"C:\Users\a\Downloads\wave.rar\Wave\Wave.exe");
+        let krnl = all
+            .iter()
+            .find(|o| o.fields["scope"] == "archive_entry" && o.fields["name"] == "KRNL.exe")
+            .unwrap();
+        assert_eq!(krnl.fields["archive_format"], "7z");
+        assert_eq!(krnl.fields["tool_id"], "krnl");
+        assert!(all.iter().all(|o| o.fields.get("name").is_none_or(|n| n != "notes.txt")));
+        let locked = all
+            .iter()
+            .find(|o| o.fields["scope"] == "archive" && o.fields["name"] == "locked.rar")
+            .unwrap();
+        assert_eq!(locked.fields["encrypted_headers"], true);
     }
 
     #[test]

@@ -17,8 +17,8 @@ beside every Found row the program shows the ordinary things that also produce i
 | Rules bundle | |
 |---|---|
 | Rule format | 4 |
-| Rules | 143 |
-| SHA-256 | `4377a62d81b92becbaf3c94984cd7ab2f083d08ba15c10f320a0355225243c18` |
+| Rules | 152 |
+| SHA-256 | `41f490644e152658ca2ccfd7001ab0566f9b425e362083ab5386db98a8e44d88` |
 
 A report header shows its rule count and bundle SHA-256. A report with a different SHA-256 came from a
 program with a different set of rules: read this page at the commit that program was built from.
@@ -102,6 +102,8 @@ screenshare: [screenshare-guide.md](screenshare-guide.md).
 - `machine_identity`
   - [Windows started through legacy BIOS, not UEFI](#rule-d5f36166-0023-4b99-9334-333938feca9e) — `posture` · `experimental`
   - [This Windows appears to run inside a virtual machine](#rule-4a370a6f-4027-45ed-9704-8bbd1355e41f) — `posture` · `experimental`
+- `mft`
+  - [The Master File Table keeps a freed record named like a Roblox executor or injector](#rule-d615135a-756a-4da8-ae18-ef2737a3e921) — `presence` · `experimental`
 - `muicache`
   - [A program Explorer opened calls itself an injector, executor or exploit](#rule-a10c08a6-2f00-40e2-838b-a874db8f7722) — `context` · `experimental`
 - `net_adapter`
@@ -155,6 +157,7 @@ screenshare: [screenshare-guide.md](screenshare-guide.md).
   - [A file named like a Windows system DLL sits beside the Roblox player](#rule-9888b00d-53c9-47ff-b719-2ed7c44b8fe1) — `presence` · `experimental`
   - [An unsigned program or DLL sits beside the Roblox player](#rule-1a665dfa-9a53-4dcb-a9ec-942ac07d57e6) — `presence` · `experimental`
 - `roblox_files`
+  - [An archive in Downloads, Desktop or Temp hides its file names (encrypted headers)](#rule-40126502-5a4c-421d-9603-522ea7152433) — `context` · `experimental`
   - [A .zip archive holds a Roblox executor's folder layout](#rule-b77bd209-8711-4277-82a9-ae7c6b349a62) — `presence` · `experimental`
   - [An unsigned program named like a Roblox executor or injector, in a Roblox context](#rule-40a072f5-89ee-408d-be3c-41d631978b1e) — `presence` · `experimental`
   - [An item named like a Roblox executor or injector is in the Recycle Bin](#rule-51cd80d4-0a55-4900-9eee-6ad30958c99e) — `presence` · `experimental`
@@ -171,10 +174,15 @@ screenshare: [screenshare-guide.md](screenshare-guide.md).
   - [A Roblox launcher, FPS unlocker or utility is on this PC or was used](#rule-d197a1c8-51da-41a7-9728-5daeb2ad622d) — `context` · `experimental`
   - [A name matches the Roblox tool catalog without context](#rule-04792358-2883-4e4c-92e1-7b7f0a5ff5b7) — `context` · `experimental`
   - [A Roblox executor or injector name is seen, with nothing showing it ran](#rule-7037504d-c285-4c91-99a9-3c11d3dbe8c5) — `presence` · `experimental`
+- `shellbags`
+  - [The Open/Save dialog remembers a file named like a Roblox executor or injector](#rule-600956be-c11f-43de-9070-02ceea97461c) — `presence` · `experimental`
+  - [Explorer remembers viewing a folder named like a Roblox executor or injector](#rule-1a7a3594-5b68-4142-8426-96aa0e0a2e90) — `presence` · `experimental`
 - `shimcache`
   - [A program in Temp or the Recycle Bin: the compatibility engine recorded the file (not proof it ran)](#rule-71839ff2-255a-4df3-8014-de800fd4ffa1) — `context` · `experimental`
 - `shortcuts`
   - [A shortcut points at a Roblox executor or injector that is no longer at its path](#rule-b497f8ad-b10f-49fb-8f5f-3f7b41aa09ca) — `context` · `experimental`
+- `srum`
+  - [SRUM recorded CPU time for a program named like a Roblox executor or injector](#rule-e3f5c638-81e3-410a-9f1d-fe762b9f8731) — `execution` · `experimental`
 - `usb_device`
   - [A microcontroller board has been a keyboard or mouse on this PC](#rule-3daec665-7482-4667-a268-3be496783a83) — `presence` · `experimental`
   - [A microcontroller or USB-serial board has been connected](#rule-e4ae1194-c460-4e8a-81e3-112e94381f23) — `context` · `experimental`
@@ -193,6 +201,9 @@ screenshare: [screenshare-guide.md](screenshare-guide.md).
   - [The change journal holds a rename in FiveM's plugin folder](#rule-7d7adb92-2c47-4ff5-94ec-dd8a2f9e453d) — `context` · `experimental`
   - [The change journal holds a deletion in PowerShell's command history folder](#rule-926b3863-8f4f-4d18-aab6-26b77934466e) — `context` · `experimental`
   - [The change journal holds a rename in PowerShell's command history folder](#rule-8a39617a-30d6-4fc0-9b20-cb4f899985d5) — `context` · `experimental`
+- `wmi_subscription`
+  - [A permanent WMI subscription runs a command line or a script](#rule-7a7cebaa-f0ae-4e82-9234-4b53f853eacb) — `presence` · `experimental`
+  - [A permanent WMI subscription names a Roblox executor or injector](#rule-2a0c35e1-7d5e-425e-a0f7-99424e7973ec) — `presence` · `experimental`
 - Timeline selectors
   - `amcache`
     - [Times Amcache wrote entries for Roblox tools](#rule-d5560346-9ad6-4b02-ad7b-692097d5bf8a) — `context` · `experimental`
@@ -210,6 +221,8 @@ screenshare: [screenshare-guide.md](screenshare-guide.md).
     - [Times of a program whose name starts like a public Roblox executor's](#rule-a6944ed9-500f-40b4-aadb-3d53a3825552) — `context` · `experimental`
   - `fivem_dir`
     - [When FiveM's log, crash and cache folders were written](#rule-2ef0da16-e65e-4bb6-90c5-0898ffc93ad8) — `context` · `test`
+  - `mft`
+    - [NTFS times of Master File Table records named like Roblox tools](#rule-59259bcb-c00a-46fa-897d-40b4ef75ea99) — `context` · `experimental`
   - `pca`
     - [When Program Compatibility Assistant recorded a program named like FiveM's game process](#rule-eaf79187-e067-43ed-9afe-bffe65e6b2e5) — `context` · `experimental`
     - [When Program Compatibility Assistant recorded a program named like FiveM or GTA V](#rule-6487719d-15cf-422c-8b8a-858647091fd1) — `context` · `experimental`
@@ -226,6 +239,8 @@ screenshare: [screenshare-guide.md](screenshare-guide.md).
     - [Times of a program whose name starts like a public Roblox executor's](#rule-751f3ec7-4cff-4cd7-81f1-5a71150b3681) — `context` · `experimental`
   - `shortcuts`
     - [Times saved in shortcuts to Roblox tools](#rule-b607be39-cc19-418a-b0fb-6dd106db32aa) — `context` · `experimental`
+  - `srum`
+    - [Hours SRUM recorded programs named like Roblox tools](#rule-d600c6da-1da8-44b5-9e47-24c56cf01558) — `context` · `experimental`
   - `userassist`
     - [Times of a program whose name starts like a public Roblox executor's](#rule-600821fa-4ec6-44b1-bb39-a324585c169f) — `context` · `experimental`
   - `usn`
@@ -2111,6 +2126,46 @@ The firmware strings Windows read at its last start.
 
 - Players who run Windows in a virtual machine for unrelated reasons, or cloud gaming PCs
 
+## Collector `mft`
+
+### `mft` / `entry`
+
+<a id="rule-d615135a-756a-4da8-ae18-ef2737a3e921"></a>
+
+#### The Master File Table keeps a freed record named like a Roblox executor or injector
+
+- Id: `d615135a-756a-4da8-ae18-ef2737a3e921`
+- File: [`rules/mft/entry/executor-named-record-not-in-use/rule.yaml`](../rules/mft/entry/executor-named-record-not-in-use/rule.yaml)
+- Collector: `mft`
+- Strength: `presence`
+- Status: `experimental` — being developed
+- Tags: `roblox`, `mft`
+- Written: 2026-10-15
+
+**About this check**
+
+A file record of the system volume's Master File Table that NTFS marked as no longer in use still holds the name of a file or folder matching a Roblox executor or injector, with its folder path and its NTFS times. That is the metadata of a deleted entry; its content is not recovered or read, the record can be reused at any moment, and a name is not proof of what the file was or that it ran.
+
+**Matches when all of these hold for one observation**
+
+- `in_use`: is `false`
+- `scope`: is `entry` (text, ASCII case ignored)
+- `tool_kind`: is one of `executor`, `injector` (text, ASCII case ignored)
+
+**Look-back**
+
+A freed record lasts until NTFS reuses it for a new file: hours on a busy volume, months on a quiet one.
+
+**Not measured, and named by the rule as ordinary on some machines**
+
+- `not_admin` — Windows would not show this without administrator rights
+- `source_absent` — this PC has no such record to read
+
+**Ordinary things that also produce this**
+
+- A download deleted unopened, or an antivirus quarantining and removing a file it flagged
+- An unrelated file with the same name, deleted for any reason
+
 ## Collector `muicache`
 
 ### `muicache` / `version-resource`
@@ -3783,6 +3838,39 @@ The version folder as it is at scan time.
 
 ### `roblox_files` / `archive`
 
+<a id="rule-40126502-5a4c-421d-9603-522ea7152433"></a>
+
+#### An archive in Downloads, Desktop or Temp hides its file names (encrypted headers)
+
+- Id: `40126502-5a4c-421d-9603-522ea7152433`
+- File: [`rules/roblox_files/archive/archive-with-encrypted-headers/rule.yaml`](../rules/roblox_files/archive/archive-with-encrypted-headers/rule.yaml)
+- Collector: `roblox_files`
+- Strength: `context`
+- Status: `experimental` — being developed
+- Tags: `roblox`, `archive`
+- Written: 2026-10-15
+
+**About this check**
+
+A .rar or .7z archive in a place this scan lists has encrypted headers, so not even the names inside it can be read without its password. Nothing inside was looked at; this only says the archive's contents could not be checked.
+
+**Matches when all of these hold for one observation**
+
+- `encrypted_headers`: is `true`
+- `scope`: is `archive` (text, ASCII case ignored)
+
+**Look-back**
+
+The archive as it is at the time of the scan.
+
+**Not measured, and named by the rule as ordinary on some machines**
+
+The rule names none.
+
+**Ordinary things that also produce this**
+
+- Any password-protected archive: backups, documents sent by work or school, game mods
+
 <a id="rule-b77bd209-8711-4277-82a9-ae7c6b349a62"></a>
 
 #### A .zip archive holds a Roblox executor's folder layout
@@ -4297,6 +4385,80 @@ The rule names none.
 - A name shared with unrelated software, or a file named this way on purpose; a legitimate tool renamed to match
 - Files kept from the past, before the account or PC was used for play
 
+## Collector `shellbags`
+
+### `shellbags` / `dialog`
+
+<a id="rule-600956be-c11f-43de-9070-02ceea97461c"></a>
+
+#### The Open/Save dialog remembers a file named like a Roblox executor or injector
+
+- Id: `600956be-c11f-43de-9070-02ceea97461c`
+- File: [`rules/shellbags/dialog/executor-named-file-picked/rule.yaml`](../rules/shellbags/dialog/executor-named-file-picked/rule.yaml)
+- Collector: `shellbags`
+- Strength: `presence`
+- Status: `experimental` — being developed
+- Tags: `roblox`, `shellbags`
+- Written: 2026-10-15
+
+**About this check**
+
+The common Open/Save dialog's list (OpenSavePidlMRU) holds a path whose file or folder name matches a Roblox executor or injector: a program used the dialog to open or save it. It is not proof that the file ran, nor which program used the dialog.
+
+**Matches when all of these hold for one observation**
+
+- `list`: is `open_save` (text, ASCII case ignored)
+- `tool_kind`: is one of `executor`, `injector` (text, ASCII case ignored)
+
+**Look-back**
+
+The list keeps the last 20 or so entries per extension until the history is cleared.
+
+**Not measured, and named by the rule as ordinary on some machines**
+
+- `access_denied` — Windows refused to open this
+
+**Ordinary things that also produce this**
+
+- Uploading or attaching a file with that name in a browser or chat program
+- An unrelated file with the same name
+
+### `shellbags` / `shellbag`
+
+<a id="rule-1a7a3594-5b68-4142-8426-96aa0e0a2e90"></a>
+
+#### Explorer remembers viewing a folder named like a Roblox executor or injector
+
+- Id: `1a7a3594-5b68-4142-8426-96aa0e0a2e90`
+- File: [`rules/shellbags/shellbag/executor-named-folder-viewed/rule.yaml`](../rules/shellbags/shellbag/executor-named-folder-viewed/rule.yaml)
+- Collector: `shellbags`
+- Strength: `presence`
+- Status: `experimental` — being developed
+- Tags: `roblox`, `shellbags`
+- Written: 2026-10-15
+
+**About this check**
+
+The account's ShellBags hold a folder path with a segment matching a Roblox executor or injector: Explorer saved a view of that folder at some point. The folder may since have been deleted, renamed or been on a drive that is no longer attached. Opening a folder is not running a program.
+
+**Matches when all of these hold for one observation**
+
+- `list`: is `shellbag` (text, ASCII case ignored)
+- `tool_kind`: is one of `executor`, `injector` (text, ASCII case ignored)
+
+**Look-back**
+
+ShellBags last until the account's profile is deleted or the history is cleared; Windows keeps thousands of folders.
+
+**Not measured, and named by the rule as ordinary on some machines**
+
+- `access_denied` — Windows refused to open this
+
+**Ordinary things that also produce this**
+
+- A folder with an ordinary name that matches, such as a photo album called Wave or Solara
+- Looking inside an archive or a folder shared by someone else without running anything
+
 ## Collector `shimcache`
 
 ### `shimcache` / `location`
@@ -4370,6 +4532,50 @@ The rule names none.
 **Ordinary things that also produce this**
 
 - The program was moved or uninstalled long ago; the target is on a drive that is not connected
+
+## Collector `srum`
+
+### `srum` / `app`
+
+<a id="rule-e3f5c638-81e3-410a-9f1d-fe762b9f8731"></a>
+
+#### SRUM recorded CPU time for a program named like a Roblox executor or injector
+
+- Id: `e3f5c638-81e3-410a-9f1d-fe762b9f8731`
+- File: [`rules/srum/app/executor-named-program-used-cpu/rule.yaml`](../rules/srum/app/executor-named-program-used-cpu/rule.yaml)
+- Collector: `srum`
+- Strength: `execution`
+- Status: `experimental` — being developed
+- Tags: `roblox`, `srum`
+- Written: 2026-10-15
+
+**About this check**
+
+The System Resource Usage Monitor database (SRUDB.dat, read from an existing shadow copy) holds rows saying that a program whose file name matches a Roblox executor or injector used CPU time, with the first and last hour it was recorded. SRUM writes about once an hour, so the times are hours, not starts. A name is not proof of what the program was, and the database misses whatever SRUM had not written yet when the shadow copy was taken.
+
+**Matches when all of these hold for one observation**
+
+- `scope`: is `app` (text, ASCII case ignored)
+- `tool_kind`: is one of `executor`, `injector` (text, ASCII case ignored)
+- `used_cpu`: is `true`
+
+**Look-back**
+
+SRUM keeps about 30 to 60 days of hourly rows; a shadow copy is as old as the snapshot, and nothing after it is in the copy.
+
+**Not measured, and named by the rule as ordinary on some machines**
+
+- `not_admin` — Windows would not show this without administrator rights
+- `source_absent` — this PC has no such record to read
+
+**Ordinary things that also produce this**
+
+- An unrelated program that happens to carry the same file name, such as a game or utility called Solara or Wave
+- A file renamed to a tool's name by someone testing this scanner
+
+**References**
+
+- <https://learn.microsoft.com/en-us/windows/win32/w8cookbook/system-resource-usage-monitor>
 
 ## Collector `usb_device`
 
@@ -4949,6 +5155,84 @@ Only the span the change journal still held when the scan read it, shown beside 
 - <https://learn.microsoft.com/en-us/powershell/module/psreadline/about/about_psreadline>
 - <https://learn.microsoft.com/en-us/windows/win32/fileio/change-journal-records>
 
+## Collector `wmi_subscription`
+
+### `wmi_subscription` / `consumer`
+
+<a id="rule-7a7cebaa-f0ae-4e82-9234-4b53f853eacb"></a>
+
+#### A permanent WMI subscription runs a command line or a script
+
+- Id: `7a7cebaa-f0ae-4e82-9234-4b53f853eacb`
+- File: [`rules/wmi_subscription/consumer/command-or-script-consumer/rule.yaml`](../rules/wmi_subscription/consumer/command-or-script-consumer/rule.yaml)
+- Collector: `wmi_subscription`
+- Strength: `presence`
+- Status: `experimental` — being developed
+- Tags: `persistence`, `wmi`
+- Written: 2026-10-15
+
+**About this check**
+
+WMI holds a CommandLineEventConsumer or ActiveScriptEventConsumer that is not one Windows ships: when its event filter fires, Windows starts the program or runs the script by itself, without a logged-in user. The row names the program, the script file or the files the script mentions, and their hash and signature when they exist; the script's text and the command's arguments are never kept. It is a way to start something persistently, not proof of what it starts.
+
+**Matches when all of these hold for one observation**
+
+- `consumer_kind`: is one of `command_line`, `active_script` (text, ASCII case ignored)
+- `known_default`: is `false`
+- `scope`: is `consumer` (text, ASCII case ignored)
+
+**Look-back**
+
+A subscription lasts until it is deleted; WMI's repository survives restarts.
+
+**Not measured, and named by the rule as ordinary on some machines**
+
+- `access_denied` — Windows refused to open this
+- `source_absent` — this PC has no such record to read
+
+**Ordinary things that also produce this**
+
+- Hardware vendor and management software (Dell, HP, Lenovo utilities, SCCM/Intune agents) that use WMI subscriptions
+- Scripts an IT department or the owner set up for maintenance
+
+**References**
+
+- <https://learn.microsoft.com/en-us/windows/win32/wmisdk/receiving-events-at-all-times>
+
+<a id="rule-2a0c35e1-7d5e-425e-a0f7-99424e7973ec"></a>
+
+#### A permanent WMI subscription names a Roblox executor or injector
+
+- Id: `2a0c35e1-7d5e-425e-a0f7-99424e7973ec`
+- File: [`rules/wmi_subscription/consumer/roblox-tool-in-consumer/rule.yaml`](../rules/wmi_subscription/consumer/roblox-tool-in-consumer/rule.yaml)
+- Collector: `wmi_subscription`
+- Strength: `presence`
+- Status: `experimental` — being developed
+- Tags: `roblox`, `persistence`, `wmi`
+- Written: 2026-10-15
+
+**About this check**
+
+A WMI event consumer's name, program, script file or the files its script mentions match a Roblox executor or injector. Windows would start that by itself whenever the subscription's event happens. A name is not proof of what the program is.
+
+**Matches when all of these hold for one observation**
+
+- `scope`: is `consumer` (text, ASCII case ignored)
+- `tool_kind`: is one of `executor`, `injector` (text, ASCII case ignored)
+
+**Look-back**
+
+A subscription lasts until it is deleted.
+
+**Not measured, and named by the rule as ordinary on some machines**
+
+- `access_denied` — Windows refused to open this
+- `source_absent` — this PC has no such record to read
+
+**Ordinary things that also produce this**
+
+- An unrelated program with the same name started by a vendor's WMI subscription
+
 ## Timeline selectors
 
 A timeline selector is written like a rule and produces no evidence: the observations it matches put their times on the report's timeline, in Self and SS mode, each with the text and the ordinary causes below. It is never Found, Not found or Not measured, and never counted (ADR 0051). A timeline selector may choose Prefetch, BAM and Program Compatibility Assistant records by name, which a rule may not (ADR 0034): a name says nothing about which program it was, and each one says so.
@@ -5303,6 +5587,38 @@ The folders as they are at the moment of the scan. FiveM writes, rotates and rem
 - Reinstalling FiveM, moving it to another PC, or restoring it from a backup
 - A backup, sync or copy tool that sets file times
 
+### `mft` / `timeline`
+
+<a id="rule-59259bcb-c00a-46fa-897d-40b4ef75ea99"></a>
+
+#### NTFS times of Master File Table records named like Roblox tools
+
+- Id: `59259bcb-c00a-46fa-897d-40b4ef75ea99`
+- File: [`rules/mft/timeline/tool-record-times/rule.yaml`](../rules/mft/timeline/tool-record-times/rule.yaml)
+- Role: `timeline` — a timeline selector: its matches are times on the timeline, never evidence
+- Collector: `mft`
+- Strength: `context`
+- Status: `experimental` — being developed
+- Tags: `timeline`, `roblox`
+- Written: 2026-10-15
+
+**About this check**
+
+Puts on the timeline the creation and last-write times NTFS keeps in Master File Table records whose names match the Roblox tool catalog, in use or freed.
+
+**Matches when all of these hold for one observation**
+
+- `scope`: is `entry` (text, ASCII case ignored)
+- `tool_id|exists`: the field is present
+
+**Look-back**
+
+A freed record lasts until NTFS reuses it.
+
+**Ordinary things behind these times**
+
+- These times can be set by programs that copy or extract files; a name does not identify a program
+
 ### `pca` / `timeline`
 
 <a id="rule-eaf79187-e067-43ed-9afe-bffe65e6b2e5"></a>
@@ -5602,6 +5918,38 @@ As long as the shortcut file is kept.
 **Ordinary things behind these times**
 
 - A shortcut's target times are from when it was saved, not from when the program last ran
+
+### `srum` / `timeline`
+
+<a id="rule-d600c6da-1da8-44b5-9e47-24c56cf01558"></a>
+
+#### Hours SRUM recorded programs named like Roblox tools
+
+- Id: `d600c6da-1da8-44b5-9e47-24c56cf01558`
+- File: [`rules/srum/timeline/tool-usage-hours/rule.yaml`](../rules/srum/timeline/tool-usage-hours/rule.yaml)
+- Role: `timeline` — a timeline selector: its matches are times on the timeline, never evidence
+- Collector: `srum`
+- Strength: `context`
+- Status: `experimental` — being developed
+- Tags: `timeline`, `roblox`
+- Written: 2026-10-15
+
+**About this check**
+
+Puts on the timeline the first and last hour the System Resource Usage Monitor recorded a program whose name matches the Roblox tool catalog.
+
+**Matches when all of these hold for one observation**
+
+- `scope`: is `app` (text, ASCII case ignored)
+- `tool_id|exists`: the field is present
+
+**Look-back**
+
+SRUM keeps about 30 to 60 days of hourly rows.
+
+**Ordinary things behind these times**
+
+- A time is the hour SRUM wrote its figures, not when the program started; a name does not identify a program
 
 ### `userassist` / `timeline`
 

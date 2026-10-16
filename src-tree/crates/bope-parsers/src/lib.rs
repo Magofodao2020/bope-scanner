@@ -31,19 +31,24 @@
 //! [`bope_host::Host`]: https://github.com/aeterna/aeterna-rongroi
 
 pub mod amcache;
+pub mod archive_names;
 pub mod bam;
 mod cp1252;
 pub mod error;
+pub mod ese;
 pub mod evtx;
 pub mod filetime;
 pub mod lnk;
 pub mod lua_markers;
+pub mod ntfs;
 pub mod pca;
 pub mod powershell_text;
 pub mod prefetch;
 pub mod recycle;
 pub mod regf;
+pub mod shell_items;
 pub mod shimcache;
+pub mod srum;
 pub mod task;
 pub mod userassist;
 pub mod usn;

@@ -40,6 +40,11 @@ clap = { version = "4.6", features = ["derive"] }
 evtx = { version = "0.12.2", default-features = false }
 insta = { version = "1.48", features = ["json", "redactions"] }
 jiff = "0.2.35"
+# lzma-rs: decodes the LZMA- or LZMA2-compressed end header of a `.7z` archive so its names can be listed
+# (B.O.P.E, ADR 0128). Pure Rust, `#![forbid(unsafe_code)]`, MIT, depending only on `byteorder` and `crc`.
+# Only the decoder is called, with the output capped at the declared header size; nothing else of an
+# archive is ever decompressed. `default-features = false` keeps `env_logger` and `log` out.
+lzma-rs = { version = "0.3.0", default-features = false }
 prefetch-core = "0.1.1"
 # quick-xml: reads a scheduled task's XML file (ADR 0060). Already in the lockfile through the desktop app's
 # `plist`, with `memchr` its only dependency; no feature is enabled, so it never decodes another encoding,

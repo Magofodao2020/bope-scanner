@@ -16,8 +16,8 @@ rule ไม่เคยตัดสินว่าใครโกง ผลแ�
 | rules bundle | |
 |---|---|
 | รูปแบบ rule | 4 |
-| จำนวน rule | 143 |
-| SHA-256 | `4377a62d81b92becbaf3c94984cd7ab2f083d08ba15c10f320a0355225243c18` |
+| จำนวน rule | 152 |
+| SHA-256 | `41f490644e152658ca2ccfd7001ab0566f9b425e362083ab5386db98a8e44d88` |
 
 ส่วนหัวของรายงานแสดงจำนวน rule และ SHA-256 ของ bundle ถ้า SHA-256 ในรายงานไม่ตรงกับค่านี้ แปลว่าโปรแกรมนั้นมี
 ชุด rule ต่างจากที่หน้านี้อธิบาย ให้อ่านหน้านี้ที่ commit ที่โปรแกรมนั้น build มา
@@ -98,6 +98,8 @@ rule ไม่เคยตัดสินว่าใครโกง ผลแ�
 - `machine_identity`
   - [Windows started through legacy BIOS, not UEFI](#rule-d5f36166-0023-4b99-9334-333938feca9e) — `posture` · `experimental`
   - [This Windows appears to run inside a virtual machine](#rule-4a370a6f-4027-45ed-9704-8bbd1355e41f) — `posture` · `experimental`
+- `mft`
+  - [The Master File Table keeps a freed record named like a Roblox executor or injector](#rule-d615135a-756a-4da8-ae18-ef2737a3e921) — `presence` · `experimental`
 - `muicache`
   - [A program Explorer opened calls itself an injector, executor or exploit](#rule-a10c08a6-2f00-40e2-838b-a874db8f7722) — `context` · `experimental`
 - `net_adapter`
@@ -151,6 +153,7 @@ rule ไม่เคยตัดสินว่าใครโกง ผลแ�
   - [A file named like a Windows system DLL sits beside the Roblox player](#rule-9888b00d-53c9-47ff-b719-2ed7c44b8fe1) — `presence` · `experimental`
   - [An unsigned program or DLL sits beside the Roblox player](#rule-1a665dfa-9a53-4dcb-a9ec-942ac07d57e6) — `presence` · `experimental`
 - `roblox_files`
+  - [An archive in Downloads, Desktop or Temp hides its file names (encrypted headers)](#rule-40126502-5a4c-421d-9603-522ea7152433) — `context` · `experimental`
   - [A .zip archive holds a Roblox executor's folder layout](#rule-b77bd209-8711-4277-82a9-ae7c6b349a62) — `presence` · `experimental`
   - [An unsigned program named like a Roblox executor or injector, in a Roblox context](#rule-40a072f5-89ee-408d-be3c-41d631978b1e) — `presence` · `experimental`
   - [An item named like a Roblox executor or injector is in the Recycle Bin](#rule-51cd80d4-0a55-4900-9eee-6ad30958c99e) — `presence` · `experimental`
@@ -167,10 +170,15 @@ rule ไม่เคยตัดสินว่าใครโกง ผลแ�
   - [A Roblox launcher, FPS unlocker or utility is on this PC or was used](#rule-d197a1c8-51da-41a7-9728-5daeb2ad622d) — `context` · `experimental`
   - [A name matches the Roblox tool catalog without context](#rule-04792358-2883-4e4c-92e1-7b7f0a5ff5b7) — `context` · `experimental`
   - [A Roblox executor or injector name is seen, with nothing showing it ran](#rule-7037504d-c285-4c91-99a9-3c11d3dbe8c5) — `presence` · `experimental`
+- `shellbags`
+  - [The Open/Save dialog remembers a file named like a Roblox executor or injector](#rule-600956be-c11f-43de-9070-02ceea97461c) — `presence` · `experimental`
+  - [Explorer remembers viewing a folder named like a Roblox executor or injector](#rule-1a7a3594-5b68-4142-8426-96aa0e0a2e90) — `presence` · `experimental`
 - `shimcache`
   - [A program in Temp or the Recycle Bin: the compatibility engine recorded the file (not proof it ran)](#rule-71839ff2-255a-4df3-8014-de800fd4ffa1) — `context` · `experimental`
 - `shortcuts`
   - [A shortcut points at a Roblox executor or injector that is no longer at its path](#rule-b497f8ad-b10f-49fb-8f5f-3f7b41aa09ca) — `context` · `experimental`
+- `srum`
+  - [SRUM recorded CPU time for a program named like a Roblox executor or injector](#rule-e3f5c638-81e3-410a-9f1d-fe762b9f8731) — `execution` · `experimental`
 - `usb_device`
   - [A microcontroller board has been a keyboard or mouse on this PC](#rule-3daec665-7482-4667-a268-3be496783a83) — `presence` · `experimental`
   - [A microcontroller or USB-serial board has been connected](#rule-e4ae1194-c460-4e8a-81e3-112e94381f23) — `context` · `experimental`
@@ -189,6 +197,9 @@ rule ไม่เคยตัดสินว่าใครโกง ผลแ�
   - [change journal มีบันทึกการเปลี่ยนชื่อไฟล์ในโฟลเดอร์ plugin ของ FiveM](#rule-7d7adb92-2c47-4ff5-94ec-dd8a2f9e453d) — `context` · `experimental`
   - [change journal มีบันทึกการลบไฟล์ในโฟลเดอร์ประวัติคำสั่งของ PowerShell](#rule-926b3863-8f4f-4d18-aab6-26b77934466e) — `context` · `experimental`
   - [change journal มีบันทึกการเปลี่ยนชื่อไฟล์ในโฟลเดอร์ประวัติคำสั่งของ PowerShell](#rule-8a39617a-30d6-4fc0-9b20-cb4f899985d5) — `context` · `experimental`
+- `wmi_subscription`
+  - [A permanent WMI subscription runs a command line or a script](#rule-7a7cebaa-f0ae-4e82-9234-4b53f853eacb) — `presence` · `experimental`
+  - [A permanent WMI subscription names a Roblox executor or injector](#rule-2a0c35e1-7d5e-425e-a0f7-99424e7973ec) — `presence` · `experimental`
 - timeline selector
   - `amcache`
     - [Times Amcache wrote entries for Roblox tools](#rule-d5560346-9ad6-4b02-ad7b-692097d5bf8a) — `context` · `experimental`
@@ -206,6 +217,8 @@ rule ไม่เคยตัดสินว่าใครโกง ผลแ�
     - [Times of a program whose name starts like a public Roblox executor's](#rule-a6944ed9-500f-40b4-aadb-3d53a3825552) — `context` · `experimental`
   - `fivem_dir`
     - [เวลาที่โฟลเดอร์ log, crash และ cache ของ FiveM ถูกเขียน](#rule-2ef0da16-e65e-4bb6-90c5-0898ffc93ad8) — `context` · `test`
+  - `mft`
+    - [NTFS times of Master File Table records named like Roblox tools](#rule-59259bcb-c00a-46fa-897d-40b4ef75ea99) — `context` · `experimental`
   - `pca`
     - [เวลาที่ Program Compatibility Assistant บันทึกโปรแกรมที่ชื่อเหมือน process เกมของ FiveM](#rule-eaf79187-e067-43ed-9afe-bffe65e6b2e5) — `context` · `experimental`
     - [เวลาที่ Program Compatibility Assistant บันทึกโปรแกรมที่ชื่อเหมือน FiveM หรือ GTA V](#rule-6487719d-15cf-422c-8b8a-858647091fd1) — `context` · `experimental`
@@ -222,6 +235,8 @@ rule ไม่เคยตัดสินว่าใครโกง ผลแ�
     - [Times of a program whose name starts like a public Roblox executor's](#rule-751f3ec7-4cff-4cd7-81f1-5a71150b3681) — `context` · `experimental`
   - `shortcuts`
     - [Times saved in shortcuts to Roblox tools](#rule-b607be39-cc19-418a-b0fb-6dd106db32aa) — `context` · `experimental`
+  - `srum`
+    - [Hours SRUM recorded programs named like Roblox tools](#rule-d600c6da-1da8-44b5-9e47-24c56cf01558) — `context` · `experimental`
   - `userassist`
     - [Times of a program whose name starts like a public Roblox executor's](#rule-600821fa-4ec6-44b1-bb39-a324585c169f) — `context` · `experimental`
   - `usn`
@@ -2126,6 +2141,46 @@ The firmware strings Windows read at its last start.
 
 - Players who run Windows in a virtual machine for unrelated reasons, or cloud gaming PCs
 
+## collector `mft`
+
+### `mft` / `entry`
+
+<a id="rule-d615135a-756a-4da8-ae18-ef2737a3e921"></a>
+
+#### The Master File Table keeps a freed record named like a Roblox executor or injector *(แสดงข้อความภาษาอังกฤษ)*
+
+- id: `d615135a-756a-4da8-ae18-ef2737a3e921`
+- ไฟล์: [`rules/mft/entry/executor-named-record-not-in-use/rule.yaml`](../rules/mft/entry/executor-named-record-not-in-use/rule.yaml)
+- collector: `mft`
+- strength: `presence` — มีไฟล์อยู่
+- status: `experimental` — อยู่ระหว่างพัฒนา
+- tag: `roblox`, `mft`
+- เขียนเมื่อ: 2026-10-15
+
+**เกี่ยวกับการตรวจนี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+A file record of the system volume's Master File Table that NTFS marked as no longer in use still holds the name of a file or folder matching a Roblox executor or injector, with its folder path and its NTFS times. That is the metadata of a deleted entry; its content is not recovered or read, the record can be reused at any moment, and a name is not proof of what the file was or that it ran.
+
+**ตรงเมื่อทุกข้อต่อไปนี้เป็นจริงกับสิ่งที่เห็นชิ้นเดียวกัน**
+
+- `in_use`: เป็น `false`
+- `scope`: เป็น `entry` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+- `tool_kind`: เป็นค่าใดค่าหนึ่งใน `executor`, `injector` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+
+**ย้อนดูได้** *(แสดงข้อความภาษาอังกฤษ)*
+
+A freed record lasts until NTFS reuses it for a new file: hours on a busy volume, months on a quiet one.
+
+**ยังไม่ได้วัด ในกรณีที่ rule ระบุไว้ว่าเป็นเรื่องปกติของบางเครื่อง**
+
+- `not_admin` — ต้องมีสิทธิ์ผู้ดูแลระบบ Windows จึงจะให้อ่าน
+- `source_absent` — เครื่องนี้ไม่มีข้อมูลส่วนนี้ให้อ่าน
+
+**เรื่องปกติที่ทำให้เกิดผลแบบนี้ได้เหมือนกัน** *(แสดงข้อความภาษาอังกฤษ)*
+
+- A download deleted unopened, or an antivirus quarantining and removing a file it flagged
+- An unrelated file with the same name, deleted for any reason
+
 ## collector `muicache`
 
 ### `muicache` / `version-resource`
@@ -3828,6 +3883,39 @@ The version folder as it is at scan time.
 
 ### `roblox_files` / `archive`
 
+<a id="rule-40126502-5a4c-421d-9603-522ea7152433"></a>
+
+#### An archive in Downloads, Desktop or Temp hides its file names (encrypted headers) *(แสดงข้อความภาษาอังกฤษ)*
+
+- id: `40126502-5a4c-421d-9603-522ea7152433`
+- ไฟล์: [`rules/roblox_files/archive/archive-with-encrypted-headers/rule.yaml`](../rules/roblox_files/archive/archive-with-encrypted-headers/rule.yaml)
+- collector: `roblox_files`
+- strength: `context` — ข้อมูลประกอบ
+- status: `experimental` — อยู่ระหว่างพัฒนา
+- tag: `roblox`, `archive`
+- เขียนเมื่อ: 2026-10-15
+
+**เกี่ยวกับการตรวจนี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+A .rar or .7z archive in a place this scan lists has encrypted headers, so not even the names inside it can be read without its password. Nothing inside was looked at; this only says the archive's contents could not be checked.
+
+**ตรงเมื่อทุกข้อต่อไปนี้เป็นจริงกับสิ่งที่เห็นชิ้นเดียวกัน**
+
+- `encrypted_headers`: เป็น `true`
+- `scope`: เป็น `archive` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+
+**ย้อนดูได้** *(แสดงข้อความภาษาอังกฤษ)*
+
+The archive as it is at the time of the scan.
+
+**ยังไม่ได้วัด ในกรณีที่ rule ระบุไว้ว่าเป็นเรื่องปกติของบางเครื่อง**
+
+rule นี้ไม่ได้ระบุไว้
+
+**เรื่องปกติที่ทำให้เกิดผลแบบนี้ได้เหมือนกัน** *(แสดงข้อความภาษาอังกฤษ)*
+
+- Any password-protected archive: backups, documents sent by work or school, game mods
+
 <a id="rule-b77bd209-8711-4277-82a9-ae7c6b349a62"></a>
 
 #### A .zip archive holds a Roblox executor's folder layout *(แสดงข้อความภาษาอังกฤษ)*
@@ -4342,6 +4430,80 @@ rule นี้ไม่ได้ระบุไว้
 - A name shared with unrelated software, or a file named this way on purpose; a legitimate tool renamed to match
 - Files kept from the past, before the account or PC was used for play
 
+## collector `shellbags`
+
+### `shellbags` / `dialog`
+
+<a id="rule-600956be-c11f-43de-9070-02ceea97461c"></a>
+
+#### The Open/Save dialog remembers a file named like a Roblox executor or injector *(แสดงข้อความภาษาอังกฤษ)*
+
+- id: `600956be-c11f-43de-9070-02ceea97461c`
+- ไฟล์: [`rules/shellbags/dialog/executor-named-file-picked/rule.yaml`](../rules/shellbags/dialog/executor-named-file-picked/rule.yaml)
+- collector: `shellbags`
+- strength: `presence` — มีไฟล์อยู่
+- status: `experimental` — อยู่ระหว่างพัฒนา
+- tag: `roblox`, `shellbags`
+- เขียนเมื่อ: 2026-10-15
+
+**เกี่ยวกับการตรวจนี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+The common Open/Save dialog's list (OpenSavePidlMRU) holds a path whose file or folder name matches a Roblox executor or injector: a program used the dialog to open or save it. It is not proof that the file ran, nor which program used the dialog.
+
+**ตรงเมื่อทุกข้อต่อไปนี้เป็นจริงกับสิ่งที่เห็นชิ้นเดียวกัน**
+
+- `list`: เป็น `open_save` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+- `tool_kind`: เป็นค่าใดค่าหนึ่งใน `executor`, `injector` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+
+**ย้อนดูได้** *(แสดงข้อความภาษาอังกฤษ)*
+
+The list keeps the last 20 or so entries per extension until the history is cleared.
+
+**ยังไม่ได้วัด ในกรณีที่ rule ระบุไว้ว่าเป็นเรื่องปกติของบางเครื่อง**
+
+- `access_denied` — Windows ไม่อนุญาตให้เปิดอ่าน
+
+**เรื่องปกติที่ทำให้เกิดผลแบบนี้ได้เหมือนกัน** *(แสดงข้อความภาษาอังกฤษ)*
+
+- Uploading or attaching a file with that name in a browser or chat program
+- An unrelated file with the same name
+
+### `shellbags` / `shellbag`
+
+<a id="rule-1a7a3594-5b68-4142-8426-96aa0e0a2e90"></a>
+
+#### Explorer remembers viewing a folder named like a Roblox executor or injector *(แสดงข้อความภาษาอังกฤษ)*
+
+- id: `1a7a3594-5b68-4142-8426-96aa0e0a2e90`
+- ไฟล์: [`rules/shellbags/shellbag/executor-named-folder-viewed/rule.yaml`](../rules/shellbags/shellbag/executor-named-folder-viewed/rule.yaml)
+- collector: `shellbags`
+- strength: `presence` — มีไฟล์อยู่
+- status: `experimental` — อยู่ระหว่างพัฒนา
+- tag: `roblox`, `shellbags`
+- เขียนเมื่อ: 2026-10-15
+
+**เกี่ยวกับการตรวจนี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+The account's ShellBags hold a folder path with a segment matching a Roblox executor or injector: Explorer saved a view of that folder at some point. The folder may since have been deleted, renamed or been on a drive that is no longer attached. Opening a folder is not running a program.
+
+**ตรงเมื่อทุกข้อต่อไปนี้เป็นจริงกับสิ่งที่เห็นชิ้นเดียวกัน**
+
+- `list`: เป็น `shellbag` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+- `tool_kind`: เป็นค่าใดค่าหนึ่งใน `executor`, `injector` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+
+**ย้อนดูได้** *(แสดงข้อความภาษาอังกฤษ)*
+
+ShellBags last until the account's profile is deleted or the history is cleared; Windows keeps thousands of folders.
+
+**ยังไม่ได้วัด ในกรณีที่ rule ระบุไว้ว่าเป็นเรื่องปกติของบางเครื่อง**
+
+- `access_denied` — Windows ไม่อนุญาตให้เปิดอ่าน
+
+**เรื่องปกติที่ทำให้เกิดผลแบบนี้ได้เหมือนกัน** *(แสดงข้อความภาษาอังกฤษ)*
+
+- A folder with an ordinary name that matches, such as a photo album called Wave or Solara
+- Looking inside an archive or a folder shared by someone else without running anything
+
 ## collector `shimcache`
 
 ### `shimcache` / `location`
@@ -4415,6 +4577,50 @@ rule นี้ไม่ได้ระบุไว้
 **เรื่องปกติที่ทำให้เกิดผลแบบนี้ได้เหมือนกัน** *(แสดงข้อความภาษาอังกฤษ)*
 
 - The program was moved or uninstalled long ago; the target is on a drive that is not connected
+
+## collector `srum`
+
+### `srum` / `app`
+
+<a id="rule-e3f5c638-81e3-410a-9f1d-fe762b9f8731"></a>
+
+#### SRUM recorded CPU time for a program named like a Roblox executor or injector *(แสดงข้อความภาษาอังกฤษ)*
+
+- id: `e3f5c638-81e3-410a-9f1d-fe762b9f8731`
+- ไฟล์: [`rules/srum/app/executor-named-program-used-cpu/rule.yaml`](../rules/srum/app/executor-named-program-used-cpu/rule.yaml)
+- collector: `srum`
+- strength: `execution` — การรันโปรแกรม
+- status: `experimental` — อยู่ระหว่างพัฒนา
+- tag: `roblox`, `srum`
+- เขียนเมื่อ: 2026-10-15
+
+**เกี่ยวกับการตรวจนี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+The System Resource Usage Monitor database (SRUDB.dat, read from an existing shadow copy) holds rows saying that a program whose file name matches a Roblox executor or injector used CPU time, with the first and last hour it was recorded. SRUM writes about once an hour, so the times are hours, not starts. A name is not proof of what the program was, and the database misses whatever SRUM had not written yet when the shadow copy was taken.
+
+**ตรงเมื่อทุกข้อต่อไปนี้เป็นจริงกับสิ่งที่เห็นชิ้นเดียวกัน**
+
+- `scope`: เป็น `app` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+- `tool_kind`: เป็นค่าใดค่าหนึ่งใน `executor`, `injector` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+- `used_cpu`: เป็น `true`
+
+**ย้อนดูได้** *(แสดงข้อความภาษาอังกฤษ)*
+
+SRUM keeps about 30 to 60 days of hourly rows; a shadow copy is as old as the snapshot, and nothing after it is in the copy.
+
+**ยังไม่ได้วัด ในกรณีที่ rule ระบุไว้ว่าเป็นเรื่องปกติของบางเครื่อง**
+
+- `not_admin` — ต้องมีสิทธิ์ผู้ดูแลระบบ Windows จึงจะให้อ่าน
+- `source_absent` — เครื่องนี้ไม่มีข้อมูลส่วนนี้ให้อ่าน
+
+**เรื่องปกติที่ทำให้เกิดผลแบบนี้ได้เหมือนกัน** *(แสดงข้อความภาษาอังกฤษ)*
+
+- An unrelated program that happens to carry the same file name, such as a game or utility called Solara or Wave
+- A file renamed to a tool's name by someone testing this scanner
+
+**แหล่งอ้างอิง**
+
+- <https://learn.microsoft.com/en-us/windows/win32/w8cookbook/system-resource-usage-monitor>
 
 ## collector `usb_device`
 
@@ -5000,6 +5206,84 @@ NTFS change journal มี record อย่างน้อยหนึ่งร�
 - <https://learn.microsoft.com/en-us/powershell/module/psreadline/about/about_psreadline>
 - <https://learn.microsoft.com/en-us/windows/win32/fileio/change-journal-records>
 
+## collector `wmi_subscription`
+
+### `wmi_subscription` / `consumer`
+
+<a id="rule-7a7cebaa-f0ae-4e82-9234-4b53f853eacb"></a>
+
+#### A permanent WMI subscription runs a command line or a script *(แสดงข้อความภาษาอังกฤษ)*
+
+- id: `7a7cebaa-f0ae-4e82-9234-4b53f853eacb`
+- ไฟล์: [`rules/wmi_subscription/consumer/command-or-script-consumer/rule.yaml`](../rules/wmi_subscription/consumer/command-or-script-consumer/rule.yaml)
+- collector: `wmi_subscription`
+- strength: `presence` — มีไฟล์อยู่
+- status: `experimental` — อยู่ระหว่างพัฒนา
+- tag: `persistence`, `wmi`
+- เขียนเมื่อ: 2026-10-15
+
+**เกี่ยวกับการตรวจนี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+WMI holds a CommandLineEventConsumer or ActiveScriptEventConsumer that is not one Windows ships: when its event filter fires, Windows starts the program or runs the script by itself, without a logged-in user. The row names the program, the script file or the files the script mentions, and their hash and signature when they exist; the script's text and the command's arguments are never kept. It is a way to start something persistently, not proof of what it starts.
+
+**ตรงเมื่อทุกข้อต่อไปนี้เป็นจริงกับสิ่งที่เห็นชิ้นเดียวกัน**
+
+- `consumer_kind`: เป็นค่าใดค่าหนึ่งใน `command_line`, `active_script` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+- `known_default`: เป็น `false`
+- `scope`: เป็น `consumer` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+
+**ย้อนดูได้** *(แสดงข้อความภาษาอังกฤษ)*
+
+A subscription lasts until it is deleted; WMI's repository survives restarts.
+
+**ยังไม่ได้วัด ในกรณีที่ rule ระบุไว้ว่าเป็นเรื่องปกติของบางเครื่อง**
+
+- `access_denied` — Windows ไม่อนุญาตให้เปิดอ่าน
+- `source_absent` — เครื่องนี้ไม่มีข้อมูลส่วนนี้ให้อ่าน
+
+**เรื่องปกติที่ทำให้เกิดผลแบบนี้ได้เหมือนกัน** *(แสดงข้อความภาษาอังกฤษ)*
+
+- Hardware vendor and management software (Dell, HP, Lenovo utilities, SCCM/Intune agents) that use WMI subscriptions
+- Scripts an IT department or the owner set up for maintenance
+
+**แหล่งอ้างอิง**
+
+- <https://learn.microsoft.com/en-us/windows/win32/wmisdk/receiving-events-at-all-times>
+
+<a id="rule-2a0c35e1-7d5e-425e-a0f7-99424e7973ec"></a>
+
+#### A permanent WMI subscription names a Roblox executor or injector *(แสดงข้อความภาษาอังกฤษ)*
+
+- id: `2a0c35e1-7d5e-425e-a0f7-99424e7973ec`
+- ไฟล์: [`rules/wmi_subscription/consumer/roblox-tool-in-consumer/rule.yaml`](../rules/wmi_subscription/consumer/roblox-tool-in-consumer/rule.yaml)
+- collector: `wmi_subscription`
+- strength: `presence` — มีไฟล์อยู่
+- status: `experimental` — อยู่ระหว่างพัฒนา
+- tag: `roblox`, `persistence`, `wmi`
+- เขียนเมื่อ: 2026-10-15
+
+**เกี่ยวกับการตรวจนี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+A WMI event consumer's name, program, script file or the files its script mentions match a Roblox executor or injector. Windows would start that by itself whenever the subscription's event happens. A name is not proof of what the program is.
+
+**ตรงเมื่อทุกข้อต่อไปนี้เป็นจริงกับสิ่งที่เห็นชิ้นเดียวกัน**
+
+- `scope`: เป็น `consumer` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+- `tool_kind`: เป็นค่าใดค่าหนึ่งใน `executor`, `injector` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+
+**ย้อนดูได้** *(แสดงข้อความภาษาอังกฤษ)*
+
+A subscription lasts until it is deleted.
+
+**ยังไม่ได้วัด ในกรณีที่ rule ระบุไว้ว่าเป็นเรื่องปกติของบางเครื่อง**
+
+- `access_denied` — Windows ไม่อนุญาตให้เปิดอ่าน
+- `source_absent` — เครื่องนี้ไม่มีข้อมูลส่วนนี้ให้อ่าน
+
+**เรื่องปกติที่ทำให้เกิดผลแบบนี้ได้เหมือนกัน** *(แสดงข้อความภาษาอังกฤษ)*
+
+- An unrelated program with the same name started by a vendor's WMI subscription
+
 ## timeline selector
 
 timeline selector เขียนแบบเดียวกับ rule แต่ไม่สร้างหลักฐาน สิ่งที่เห็นที่มันเลือกจะเอาเวลาของตัวเองไปวางบน timeline ของรายงาน ทั้งโหมด Self และ SS พร้อมข้อความและเรื่องปกติด้านล่าง มันไม่เคยเป็น เจอ ไม่เจอ หรือ ยังไม่ได้วัด และไม่ถูกนับ (ADR 0051) timeline selector เลือกบันทึกของ Prefetch, BAM และ Program Compatibility Assistant ตามชื่อได้ ซึ่ง rule ทำไม่ได้ (ADR 0034) ชื่อไม่ได้บอกว่าเป็นโปรแกรมไหน และทุกตัวเขียนบอกไว้
@@ -5361,6 +5645,38 @@ Whatever this source still holds.
 - ติดตั้ง FiveM ใหม่ ย้ายไปเครื่องอื่น หรือกู้คืนจากข้อมูลสำรอง
 - โปรแกรมสำรองข้อมูล ซิงก์ หรือคัดลอกไฟล์ที่ตั้งเวลาของไฟล์
 
+### `mft` / `timeline`
+
+<a id="rule-59259bcb-c00a-46fa-897d-40b4ef75ea99"></a>
+
+#### NTFS times of Master File Table records named like Roblox tools *(แสดงข้อความภาษาอังกฤษ)*
+
+- id: `59259bcb-c00a-46fa-897d-40b4ef75ea99`
+- ไฟล์: [`rules/mft/timeline/tool-record-times/rule.yaml`](../rules/mft/timeline/tool-record-times/rule.yaml)
+- บทบาท: `timeline` — timeline selector: สิ่งที่ตรงคือเวลาบน timeline ไม่ใช่หลักฐาน
+- collector: `mft`
+- strength: `context` — ข้อมูลประกอบ
+- status: `experimental` — อยู่ระหว่างพัฒนา
+- tag: `timeline`, `roblox`
+- เขียนเมื่อ: 2026-10-15
+
+**เกี่ยวกับการตรวจนี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+Puts on the timeline the creation and last-write times NTFS keeps in Master File Table records whose names match the Roblox tool catalog, in use or freed.
+
+**ตรงเมื่อทุกข้อต่อไปนี้เป็นจริงกับสิ่งที่เห็นชิ้นเดียวกัน**
+
+- `scope`: เป็น `entry` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+- `tool_id|exists`: มีฟิลด์นี้
+
+**ย้อนดูได้** *(แสดงข้อความภาษาอังกฤษ)*
+
+A freed record lasts until NTFS reuses it.
+
+**เรื่องปกติที่อยู่เบื้องหลังเวลาเหล่านี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+- These times can be set by programs that copy or extract files; a name does not identify a program
+
 ### `pca` / `timeline`
 
 <a id="rule-eaf79187-e067-43ed-9afe-bffe65e6b2e5"></a>
@@ -5666,6 +5982,38 @@ As long as the shortcut file is kept.
 **เรื่องปกติที่อยู่เบื้องหลังเวลาเหล่านี้** *(แสดงข้อความภาษาอังกฤษ)*
 
 - A shortcut's target times are from when it was saved, not from when the program last ran
+
+### `srum` / `timeline`
+
+<a id="rule-d600c6da-1da8-44b5-9e47-24c56cf01558"></a>
+
+#### Hours SRUM recorded programs named like Roblox tools *(แสดงข้อความภาษาอังกฤษ)*
+
+- id: `d600c6da-1da8-44b5-9e47-24c56cf01558`
+- ไฟล์: [`rules/srum/timeline/tool-usage-hours/rule.yaml`](../rules/srum/timeline/tool-usage-hours/rule.yaml)
+- บทบาท: `timeline` — timeline selector: สิ่งที่ตรงคือเวลาบน timeline ไม่ใช่หลักฐาน
+- collector: `srum`
+- strength: `context` — ข้อมูลประกอบ
+- status: `experimental` — อยู่ระหว่างพัฒนา
+- tag: `timeline`, `roblox`
+- เขียนเมื่อ: 2026-10-15
+
+**เกี่ยวกับการตรวจนี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+Puts on the timeline the first and last hour the System Resource Usage Monitor recorded a program whose name matches the Roblox tool catalog.
+
+**ตรงเมื่อทุกข้อต่อไปนี้เป็นจริงกับสิ่งที่เห็นชิ้นเดียวกัน**
+
+- `scope`: เป็น `app` (ข้อความ ไม่สนตัวพิมพ์เล็กใหญ่ของอักษร ASCII)
+- `tool_id|exists`: มีฟิลด์นี้
+
+**ย้อนดูได้** *(แสดงข้อความภาษาอังกฤษ)*
+
+SRUM keeps about 30 to 60 days of hourly rows.
+
+**เรื่องปกติที่อยู่เบื้องหลังเวลาเหล่านี้** *(แสดงข้อความภาษาอังกฤษ)*
+
+- A time is the hour SRUM wrote its figures, not when the program started; a name does not identify a program
 
 ### `userassist` / `timeline`
 

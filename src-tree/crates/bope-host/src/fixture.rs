@@ -16,6 +16,7 @@ use crate::{
     FirmwareSource, Host, IommuTable, Platform, ProcessRecord, ProcessSource, RegistryData,
     RegistrySource, SignatureCheck, SignatureSource, SourceError, SystemIntegritySource, TpmInfo,
     TpmSource, UsnJournalRead, UsnJournalSource, UsnJournalState, UsnReadEnd,
+    RandomReadSource, WmiObject, WmiSubscriptionClass, WmiSubscriptionSource,
 };
 
 /// Why a fixture host could not be loaded.
@@ -90,6 +91,39 @@ struct HostFile {
     /// parent listing to carry them, so they are written here; a drive not named here is not there.
     #[serde(default)]
     drive_roots: BTreeMap<String, FixtureTimes>,
+    /// Raw volume images keyed by drive letter, `C` (B.O.P.E, ADR 0124). A drive not named here is
+    /// `Unsupported`, never an empty volume.
+    #[serde(default)]
+    volumes: BTreeMap<String, FixtureVolume>,
+    /// Permanent WMI event subscription objects by namespace (B.O.P.E, ADR 0127). Absent means the
+    /// fixture never modelled WMI, which the accessor reports as `Unsupported`.
+    #[serde(default)]
+    wmi: Option<FixtureWmi>,
+}
+
+/// One raw volume image (B.O.P.E, ADR 0124): its bytes as `hex:` or `from:`, or `access_denied: true`
+/// for a volume a host without administrator rights cannot open.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FixtureVolume {
+    #[serde(default)]
+    hex: Option<String>,
+    #[serde(default)]
+    from: Option<String>,
+    #[serde(default)]
+    access_denied: bool,
+}
+
+/// What WMI holds, for the fixture host (B.O.P.E, ADR 0127).
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FixtureWmi {
+    /// Objects by namespace, as `ROOT\subscription`. A namespace not named here does not exist.
+    #[serde(default)]
+    namespaces: BTreeMap<String, Vec<WmiObject>>,
+    /// Namespaces WMI refuses to the account.
+    #[serde(default)]
+    access_denied: Vec<String>,
 }
 
 /// One device a fixture describes (ADR 0069). `id` is a device **instance** id, as `CfgMgr32` lists it,
@@ -1184,6 +1218,9 @@ pub struct FixtureHost {
     devices: Option<Vec<DeviceRecord>>,
     /// Keyed by the lower-cased drive, `c:`.
     drive_roots: BTreeMap<String, EntryTimes>,
+    /// Keyed by the upper-cased drive letter; `None` is a volume the account may not open.
+    volumes: BTreeMap<char, Option<Vec<u8>>>,
+    wmi: Option<FixtureWmi>,
 }
 
 impl FixtureHost {
@@ -1233,6 +1270,26 @@ impl FixtureHost {
             .map(|(name, value)| (name.to_ascii_lowercase(), value))
             .collect();
         let drive_roots = resolve_drive_roots(file.drive_roots, origin)?;
+        let mut volumes = BTreeMap::new();
+        for (drive, volume) in file.volumes {
+            let what = format!("volume `{drive}`");
+            let letter = drive
+                .chars()
+                .next()
+                .filter(|c| c.is_ascii_alphabetic() && drive.len() == 1)
+                .ok_or_else(|| FixtureError::Parse {
+                    path: origin.to_owned(),
+                    message: format!("{what}: a volume is named by one drive letter"),
+                })?;
+            let bytes = if volume.access_denied {
+                None
+            } else if let Some(hex) = volume.hex {
+                Some(decode_hex(&hex, &what, origin)?)
+            } else {
+                resolve_content(None, volume.from, &what, origin, base)?
+            };
+            volumes.insert(letter.to_ascii_uppercase(), bytes);
+        }
         let mut filesystem = BTreeMap::new();
         for (dir, files) in file.filesystem {
             let mut entries = Vec::with_capacity(files.len());
@@ -1301,6 +1358,8 @@ impl FixtureHost {
                 })
                 .transpose()?,
             drive_roots,
+            volumes,
+            wmi: file.wmi,
             event_log_channels: file
                 .event_log_channels
                 .map(|channels| {
@@ -1318,6 +1377,30 @@ impl FixtureHost {
                 .map(|journal| resolve_usn_journal(journal, origin))
                 .transpose()?,
         })
+    }
+
+    /// The bytes the fixture wrote for one file, after `read_file`'s checks, with no size limit.
+    fn stored_content(&self, path: &str) -> Result<Option<&[u8]>, SourceError> {
+        self.windows_filesystem()?;
+        let normalised = normalise_path(path);
+        let (dir, name) = split_parent(&normalised);
+        if self.is_denied(&normalised) || self.is_denied(dir) {
+            return Err(SourceError::AccessDenied);
+        }
+        let Some(file) = self.filesystem.get(dir).and_then(|files| {
+            files
+                .iter()
+                .find(|file| file.name.eq_ignore_ascii_case(name))
+        }) else {
+            return Ok(None);
+        };
+        if file.directory {
+            return Err(SourceError::Failed(format!("not a file: {path}")));
+        }
+        file.content
+            .as_deref()
+            .map(Some)
+            .ok_or_else(|| SourceError::Failed(format!("no content recorded for {path}")))
     }
 
     /// The entry the fixture wrote for one file, after the access checks every per-file read makes.
@@ -1762,6 +1845,93 @@ impl UsnJournalSource for FixtureHost {
             )));
         }
         Ok(journal.folders.get(&key).copied())
+    }
+}
+
+impl RandomReadSource for FixtureHost {
+    /// The length of the bytes the fixture wrote for that file, behind `read_file`'s checks.
+    fn file_size(&self, path: &str) -> Result<Option<u64>, SourceError> {
+        Ok(self
+            .stored_content(path)?
+            .map(|content| u64::try_from(content.len()).unwrap_or(u64::MAX)))
+    }
+
+    /// A slice of the bytes the fixture wrote for that file. Unlike `read_file`, no whole-file limit
+    /// applies: only the slice is returned.
+    fn read_file_at(
+        &self,
+        path: &str,
+        offset: u64,
+        len: usize,
+    ) -> Result<Option<Vec<u8>>, SourceError> {
+        match self.stored_content(path)? {
+            Some(content) => crate::slice_at(content, offset, len).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    fn read_volume_at(&self, volume: char, offset: u64, len: usize) -> Result<Vec<u8>, SourceError> {
+        self.windows_filesystem()?;
+        match self.volumes.get(&volume.to_ascii_uppercase()) {
+            None => Err(SourceError::Unsupported(format!(
+                "this fixture host does not describe volume {volume}:"
+            ))),
+            Some(None) => Err(SourceError::AccessDenied),
+            Some(Some(bytes)) => crate::slice_at(bytes, offset, len),
+        }
+    }
+}
+
+impl WmiSubscriptionSource for FixtureHost {
+    fn wmi_objects(
+        &self,
+        namespace: &str,
+        class: WmiSubscriptionClass,
+        properties: &[&str],
+    ) -> Result<Option<Vec<WmiObject>>, SourceError> {
+        let wmi = self.wmi.as_ref().ok_or_else(|| {
+            SourceError::Unsupported("this fixture host does not describe WMI".to_owned())
+        })?;
+        if wmi
+            .access_denied
+            .iter()
+            .any(|n| n.eq_ignore_ascii_case(namespace))
+        {
+            return Err(SourceError::AccessDenied);
+        }
+        let Some(objects) = wmi
+            .namespaces
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(namespace))
+            .map(|(_, o)| o)
+        else {
+            return Ok(None);
+        };
+        let kind_of = |object: &WmiObject| match object.class.as_str() {
+            "__EventFilter" => WmiSubscriptionClass::Filter,
+            "__FilterToConsumerBinding" => WmiSubscriptionClass::Binding,
+            _ => WmiSubscriptionClass::Consumer,
+        };
+        Ok(Some(
+            objects
+                .iter()
+                .filter(|object| kind_of(object) == class)
+                .map(|object| WmiObject {
+                    class: object.class.clone(),
+                    properties: object
+                        .properties
+                        .iter()
+                        .filter(|(name, _)| properties.iter().any(|p| p.eq_ignore_ascii_case(name)))
+                        .map(|(name, value)| {
+                            (
+                                name.clone(),
+                                crate::bound_text(value.clone(), crate::MAX_WMI_PROPERTY_BYTES).0,
+                            )
+                        })
+                        .collect(),
+                })
+                .collect(),
+        ))
     }
 }
 

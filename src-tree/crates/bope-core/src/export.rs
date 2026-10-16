@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Part of B.O.P.E Scanner, a modified version of aeterna-rongroi. Using it to evade detection is out of scope — see AGENTS.md.
 
-//! Saved reports: JSON, HTML and plain text, each with the SHA-256 of its exact bytes
-//! (B.O.P.E, ADR 0116).
+//! Saved reports: JSON, HTML, plain text and PDF, each with the SHA-256 of its exact bytes
+//! (B.O.P.E, ADR 0116; PDF: ADR 0129).
 //!
 //! Every format is built from a [`ReportView`] — so an SS-mode export is redacted exactly as the screen
 //! was — and from the bundle's own rule texts. The functions here only build bytes; writing them to a
@@ -28,7 +28,7 @@ pub const FORMAT_NAME: &str = "bope-scanner-report";
 /// Version of the JSON export's own shape.
 pub const FORMAT_VERSION: u32 = 1;
 
-/// One of the three formats.
+/// One of the four formats.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     /// Machine-readable, the whole view.
@@ -37,6 +37,9 @@ pub enum Format {
     Html,
     /// Plain text for a person.
     Text,
+    /// The plain-text report as a PDF document, with the SHA-256 of the equivalent JSON export
+    /// (ADR 0129).
+    Pdf,
 }
 
 impl Format {
@@ -46,15 +49,17 @@ impl Format {
             Self::Json => "json",
             Self::Html => "html",
             Self::Text => "txt",
+            Self::Pdf => "pdf",
         }
     }
 
-    /// Parses `json`, `html` or `txt`/`text`.
+    /// Parses `json`, `html`, `txt`/`text` or `pdf`.
     pub fn parse(text: &str) -> Option<Self> {
         match text.to_ascii_lowercase().as_str() {
             "json" => Some(Self::Json),
             "html" | "htm" => Some(Self::Html),
             "txt" | "text" => Some(Self::Text),
+            "pdf" => Some(Self::Pdf),
             _ => None,
         }
     }
@@ -106,6 +111,7 @@ pub fn export(view: &ReportView, bundle: &Bundle, lang: &str, format: Format) ->
         Format::Json => json(view, bundle, lang),
         Format::Html => html(view, bundle, lang).into_bytes(),
         Format::Text => text(view, bundle, lang).into_bytes(),
+        Format::Pdf => pdf(view, bundle, lang),
     };
     Exported {
         sha256: sha256_hex(&bytes),
@@ -674,6 +680,48 @@ fn text(view: &ReportView, bundle: &Bundle, lang: &str) -> String {
     out
 }
 
+/// Whether a line of the text report is a section heading: unindented and starting with a word in
+/// capitals.
+fn is_heading(line: &str) -> bool {
+    let first = line.split([' ', ':', '(']).next().unwrap_or_default();
+    !line.starts_with(' ')
+        && first.chars().count() >= 4
+        && first.chars().all(|c| c.is_uppercase() || c == '-')
+}
+
+/// The text report as a PDF, with the SHA-256 of the JSON export of the same view written into it so
+/// a reader can match the two (ADR 0129).
+fn pdf(view: &ReportView, bundle: &Bundle, lang: &str) -> Vec<u8> {
+    let json_sha = sha256_hex(&json(view, bundle, lang));
+    let body = text(view, bundle, lang);
+    let mut lines = Vec::new();
+    for (i, line) in body.lines().enumerate() {
+        if i == 0 || is_heading(line) {
+            lines.push(crate::pdf::Line::Heading(line.to_owned()));
+        } else {
+            lines.push(crate::pdf::Line::Text(line.to_owned()));
+        }
+        if i == 2 {
+            lines.push(crate::pdf::Line::Text(format!(
+                "JSON equivalente     : SHA-256 {json_sha} (exporte em JSON para conferir)"
+            )));
+        }
+    }
+    let info = crate::pdf::Info {
+        title: format!("B.O.P.E Scanner — relatório {}", view.header.generated_at),
+        producer: format!(
+            "B.O.P.E Scanner {} (UNOFFICIAL BUILD)",
+            view.header.provenance.version
+        ),
+        created: view.header.generated_at.clone(),
+        footer: format!(
+            "B.O.P.E Scanner {} · gerado em {} UTC · somente evidências, nunca veredito",
+            view.header.provenance.version, view.header.generated_at
+        ),
+    };
+    crate::pdf::render(&info, &lines)
+}
+
 /// Escapes text for HTML.
 pub fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -957,6 +1005,7 @@ mod tests {
             "bope-report-20261015T123456-ss"
         );
         assert_eq!(Format::parse("TXT"), Some(Format::Text));
-        assert_eq!(Format::parse("pdf"), None);
+        assert_eq!(Format::parse("pdf"), Some(Format::Pdf));
+        assert_eq!(Format::parse("docx"), None);
     }
 }

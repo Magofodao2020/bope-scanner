@@ -78,7 +78,7 @@ static REASONS: [UnmeasuredReason; 6] = [
 pub struct Amcache;
 
 /// The newest shadow copy holding the hive, and its number.
-fn newest_shadow(host: &dyn Host, relative: &str) -> Option<(u32, String)> {
+pub(crate) fn newest_shadow(host: &dyn Host, relative: &str) -> Option<(u32, String)> {
     (1..=MAX_SHADOW_INDEX).rev().find_map(|n| {
         let path = format!(r"\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy{n}\{relative}");
         matches!(host.times(&path), Ok(Some(_))).then_some((n, path))

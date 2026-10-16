@@ -14,6 +14,7 @@ pub mod bundle;
 pub mod engine;
 pub mod export;
 pub mod model;
+pub mod pdf;
 pub mod provenance;
 pub mod rules;
 pub mod view;

@@ -124,7 +124,11 @@
     "fastflags": "FastFlags do Roblox",
     "roblox_files": "Nomes de ferramentas Roblox no disco",
     "roblox_trace": "Rastros de ferramentas Roblox (correlação)",
-    "shortcuts": "Atalhos (.lnk)"
+    "shortcuts": "Atalhos (.lnk)",
+    "srum": "Uso de recursos por programa (SRUM)",
+    "mft": "Master File Table do NTFS (avançada)",
+    "shellbags": "Pastas e arquivos de diálogos lembrados pelo Explorer (ShellBags, avançada)",
+    "wmi_subscription": "Assinaturas WMI permanentes"
   },
   "group_count": {
     "found": "{{count}} encontrado(s)",

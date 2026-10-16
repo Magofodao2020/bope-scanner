@@ -135,7 +135,16 @@ fn a_removed_executor_is_corroborated_from_history_without_its_files() {
     assert_eq!(fluxus.fields["deleted"], true);
     assert_eq!(fluxus.fields["missing_now"], true);
     let families = fluxus.fields["families"].as_str().unwrap();
-    for family in ["userassist", "amcache", "shortcuts", "usn", "file_listing"] {
+    for family in [
+        "userassist",
+        "amcache",
+        "shortcuts",
+        "usn",
+        "file_listing",
+        "srum",
+        "mft",
+        "shellbags",
+    ] {
         assert!(
             families.contains(family),
             "{family} missing from {families}"
@@ -145,7 +154,21 @@ fn a_removed_executor_is_corroborated_from_history_without_its_files() {
     assert!(tools.iter().all(|o| o.fields["tool_id"] != "chromesetup"));
     // Every source the correlation could use says whether it was read.
     let sources = trace_rows(&report, "source");
-    assert_eq!(sources.len(), 19, "{sources:#?}");
+    assert_eq!(sources.len(), 23, "{sources:#?}");
+    for source in ["srum", "mft", "shellbags", "wmi_subscription"] {
+        assert!(
+            sources
+                .iter()
+                .any(|o| o.fields["source"] == source && o.fields["state"] == "measured"),
+            "{source} was not read: {sources:#?}"
+        );
+    }
+    // Windows' own WMI subscription is read and is never a hit.
+    assert!(
+        trace_rows(&report, "hit")
+            .iter()
+            .all(|o| o.fields["source"] != "wmi_subscription")
+    );
     assert!(sources.iter().any(|o| o.fields["state"] != "measured"));
     assert!(
         sources
@@ -178,7 +201,7 @@ fn a_removed_executor_is_corroborated_from_history_without_its_files() {
 fn every_export_is_the_bytes_its_hash_names_and_html_is_escaped() {
     let (report, bundle) = scan_fixture("roblox-executor-traces");
     let view = view::for_mode(&report, Mode::Ss).with_assessment(&report, &bundle);
-    for format in [Format::Json, Format::Html, Format::Text] {
+    for format in [Format::Json, Format::Html, Format::Text, Format::Pdf] {
         let exported = export::export(&view, &bundle, "pt-BR", format);
         assert_eq!(exported.sha256, export::sha256_hex(&exported.bytes));
         assert_eq!(exported.extension, format.extension());
@@ -197,4 +220,14 @@ fn every_export_is_the_bytes_its_hash_names_and_html_is_escaped() {
         !html.contains("fixtureuser"),
         "the user name leaked into an SS export"
     );
+    // The PDF carries the version, the time in UTC, the tools section, the sources and the hash of
+    // the JSON export of the same view, and is redacted like the view it was built from (ADR 0129).
+    let pdf = export::export(&view, &bundle, "pt-BR", Format::Pdf).bytes;
+    let pdf_text = String::from_utf8_lossy(&pdf);
+    assert!(pdf.starts_with(b"%PDF-1.4"));
+    assert!(pdf_text.contains(&report.header.provenance.version));
+    assert!(pdf_text.contains("FERRAMENTAS ROBLOX"));
+    let json_sha = export::export(&view, &bundle, "pt-BR", Format::Json).sha256;
+    assert!(pdf_text.contains(&json_sha));
+    assert!(!pdf_text.contains("fixtureuser"));
 }

@@ -788,6 +788,122 @@ pub trait UsnJournalSource {
     fn file_id(&self, path: &str) -> Result<Option<FileId>, SourceError>;
 }
 
+/// Most bytes one [`RandomReadSource`] call returns (B.O.P.E, ADR 0124).
+///
+/// A read at an offset is how a database that is larger than [`MAX_FILE_BYTES`] — `SRUDB.dat` is often
+/// hundreds of megabytes — or a raw volume is read one page at a time. 1 MiB is far above an ESE page
+/// (4–32 KiB) and an NTFS file record batch, and small enough that no read sizes an allocation from the
+/// file.
+pub const MAX_READ_AT_BYTES: usize = 1024 * 1024;
+
+/// Read-only random access to one file, or to the raw bytes of a volume (B.O.P.E, ADR 0124).
+///
+/// Every call opens for reading only, with every share mode, so the service that owns a file keeps
+/// writing it; nothing is locked, written or truncated, and no timestamp is changed. A volume is read
+/// through its device path (`\\.\C:`), which needs administrator rights and never locks or
+/// dismounts it.
+pub trait RandomReadSource {
+    /// The size in bytes of the regular file at `path`. `Ok(None)` when nothing is there.
+    fn file_size(&self, path: &str) -> Result<Option<u64>, SourceError>;
+
+    /// At most `len` bytes of the file at `path`, from `offset`. Fewer bytes come back only at the
+    /// end of the file. `len` above [`MAX_READ_AT_BYTES`] is refused with [`SourceError::TooLarge`].
+    /// `Ok(None)` when nothing is there.
+    fn read_file_at(&self, path: &str, offset: u64, len: usize)
+    -> Result<Option<Vec<u8>>, SourceError>;
+
+    /// `len` bytes of the raw volume `volume` (a drive letter) from `offset`, as the disk holds them.
+    /// The host aligns the read to the volume's sectors itself. Fewer bytes come back only at the end
+    /// of the volume. `len` above [`MAX_READ_AT_BYTES`] is refused.
+    fn read_volume_at(&self, volume: char, offset: u64, len: usize) -> Result<Vec<u8>, SourceError>;
+}
+
+/// One WMI object of an event subscription, as the documented WMI query interface returns it
+/// (B.O.P.E, ADR 0127).
+///
+/// Only the system property `__CLASS` and the named properties a host is asked for are kept, as text;
+/// a property that is null or of a type that is not text, a number or a boolean is left out. Nothing
+/// is executed and nothing in WMI is changed by reading it.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "fixture", derive(serde::Deserialize))]
+#[cfg_attr(feature = "fixture", serde(deny_unknown_fields))]
+pub struct WmiObject {
+    /// The object's class, `__CLASS`: `__EventFilter`, `CommandLineEventConsumer`,
+    /// `ActiveScriptEventConsumer`, `__FilterToConsumerBinding`, …
+    pub class: String,
+    /// The properties read, by name, as text. A host bounds each to [`MAX_WMI_PROPERTY_BYTES`].
+    #[cfg_attr(feature = "fixture", serde(default))]
+    pub properties: std::collections::BTreeMap<String, String>,
+}
+
+/// Most bytes kept of one WMI property's text. A script consumer's `ScriptText` can be any length; a
+/// longer one is cut here and the collector says so.
+pub const MAX_WMI_PROPERTY_BYTES: usize = 64 * 1024;
+
+/// The three kinds of object that make a permanent WMI event subscription (B.O.P.E, ADR 0127).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum WmiSubscriptionClass {
+    /// `__EventFilter`: the event query.
+    Filter,
+    /// `__EventConsumer` and every class derived from it: what is done when the event happens.
+    Consumer,
+    /// `__FilterToConsumerBinding`: which filter starts which consumer.
+    Binding,
+}
+
+impl WmiSubscriptionClass {
+    /// The WMI class queried for this kind; a query of an abstract class returns its subclasses.
+    pub fn wmi_class(self) -> &'static str {
+        match self {
+            Self::Filter => "__EventFilter",
+            Self::Consumer => "__EventConsumer",
+            Self::Binding => "__FilterToConsumerBinding",
+        }
+    }
+}
+
+/// Read-only access to the permanent WMI event subscriptions of one namespace (B.O.P.E, ADR 0127).
+///
+/// A live host asks WMI itself (`IWbemServices::ExecQuery`, `SELECT * FROM <class>`), with the caller's
+/// own rights; it never calls `PutInstance`, `DeleteInstance` or `ExecMethod`, and never starts a
+/// consumer. `Ok(None)` when the namespace does not exist on this PC.
+pub trait WmiSubscriptionSource {
+    /// Every object of `class` in `namespace` (`ROOT\subscription`), with the properties named in
+    /// `properties` that it holds.
+    fn wmi_objects(
+        &self,
+        namespace: &str,
+        class: WmiSubscriptionClass,
+        properties: &[&str],
+    ) -> Result<Option<Vec<WmiObject>>, SourceError>;
+}
+
+/// Cuts `text` to at most `limit` bytes at a character boundary, and says whether it cut.
+pub fn bound_text(mut text: String, limit: usize) -> (String, bool) {
+    if text.len() <= limit {
+        return (text, false);
+    }
+    let mut end = limit;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    text.truncate(end);
+    (text, true)
+}
+
+/// The bytes `[offset, offset + len)` of `content`, clamped to its end, for hosts that hold a file in
+/// memory. Refuses a `len` above [`MAX_READ_AT_BYTES`].
+pub fn slice_at(content: &[u8], offset: u64, len: usize) -> Result<Vec<u8>, SourceError> {
+    if len > MAX_READ_AT_BYTES {
+        return Err(SourceError::TooLarge {
+            limit: MAX_READ_AT_BYTES,
+        });
+    }
+    let start = usize::try_from(offset).unwrap_or(usize::MAX).min(content.len());
+    let end = start.saturating_add(len).min(content.len());
+    Ok(content[start..end].to_vec())
+}
+
 /// Size of one read when a file is streamed through SHA-256.
 const READ_BLOCK: usize = 64 * 1024;
 
@@ -921,6 +1037,8 @@ pub trait Host:
     + DeviceSource
     + UsnJournalSource
     + AccountSource
+    + RandomReadSource
+    + WmiSubscriptionSource
 {
     /// Operating system family.
     fn platform(&self) -> Platform;
@@ -1118,6 +1236,42 @@ impl AccountSource for NonWindowsHost {
         Err(SourceError::Unsupported(
             "no Windows account on this platform".to_owned(),
         ))
+    }
+}
+
+impl RandomReadSource for NonWindowsHost {
+    fn file_size(&self, _path: &str) -> Result<Option<u64>, SourceError> {
+        Err(SourceError::Unsupported(
+            "no Windows file system on this platform".to_owned(),
+        ))
+    }
+
+    fn read_file_at(
+        &self,
+        _path: &str,
+        _offset: u64,
+        _len: usize,
+    ) -> Result<Option<Vec<u8>>, SourceError> {
+        Err(SourceError::Unsupported(
+            "no Windows file system on this platform".to_owned(),
+        ))
+    }
+
+    fn read_volume_at(&self, _volume: char, _offset: u64, _len: usize) -> Result<Vec<u8>, SourceError> {
+        Err(SourceError::Unsupported(
+            "no NTFS volume on this platform".to_owned(),
+        ))
+    }
+}
+
+impl WmiSubscriptionSource for NonWindowsHost {
+    fn wmi_objects(
+        &self,
+        _namespace: &str,
+        _class: WmiSubscriptionClass,
+        _properties: &[&str],
+    ) -> Result<Option<Vec<WmiObject>>, SourceError> {
+        Err(SourceError::Unsupported("no WMI on this platform".to_owned()))
     }
 }
 

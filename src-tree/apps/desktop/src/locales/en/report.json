@@ -124,7 +124,11 @@
     "fastflags": "Roblox FastFlags",
     "roblox_files": "Roblox tool names on disk",
     "roblox_trace": "Roblox tool traces (correlated)",
-    "shortcuts": "Shortcuts (.lnk)"
+    "shortcuts": "Shortcuts (.lnk)",
+    "srum": "Resource usage per program (SRUM)",
+    "mft": "NTFS Master File Table (advanced)",
+    "shellbags": "Folders and dialog files Explorer remembers (ShellBags, advanced)",
+    "wmi_subscription": "Permanent WMI event subscriptions"
   },
   "group_count": {
     "found": "{{count}} found",

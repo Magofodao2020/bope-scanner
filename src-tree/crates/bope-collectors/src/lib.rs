@@ -26,6 +26,7 @@ pub mod install_marker;
 pub mod installed_programs;
 pub mod location;
 pub mod machine_identity;
+pub mod mft;
 pub mod muicache;
 pub mod net_adapter;
 pub mod net_config;
@@ -43,13 +44,16 @@ pub mod roblox_process;
 pub mod roblox_trace;
 pub mod scan;
 pub mod shell_mru;
+pub mod shellbags;
 pub mod shimcache;
 pub mod shortcuts;
+pub mod srum;
 pub mod usb_device;
 pub mod user_files;
 pub mod userassist;
 pub mod usn;
 pub mod windows_start;
+pub mod wmi_subscription;
 
 use bope_core::model::{CollectorRun, UnmeasuredReason};
 pub use bope_core::model::{ScanTier, SensitiveKind};
@@ -333,6 +337,7 @@ pub fn all() -> Vec<Box<dyn Collector>> {
         Box::new(install_marker::InstallMarker),
         Box::new(installed_programs::InstalledPrograms),
         Box::new(machine_identity::MachineIdentity),
+        Box::new(mft::Mft),
         Box::new(muicache::MuiCache),
         Box::new(net_adapter::NetAdapter),
         Box::new(net_config::NetConfig),
@@ -347,13 +352,16 @@ pub fn all() -> Vec<Box<dyn Collector>> {
         Box::new(roblox_files::RobloxFiles),
         Box::new(roblox_process::RobloxProcess),
         Box::new(shell_mru::ShellMru),
+        Box::new(shellbags::ShellBags),
         Box::new(shortcuts::Shortcuts),
         Box::new(shimcache::ShimCache),
+        Box::new(srum::Srum),
         Box::new(usb_device::UsbDevice),
         Box::new(user_files::UserFiles),
         Box::new(userassist::UserAssist),
         Box::new(usn::Usn::default()),
         Box::new(windows_start::WindowsStart),
+        Box::new(wmi_subscription::WmiSubscription),
         // Last: it correlates the runs before it (ADR 0123).
         Box::new(roblox_trace::RobloxTrace),
     ]

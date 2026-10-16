@@ -992,3 +992,117 @@ fe57aa65-11b0-4e1f-b81c-a4fda597855b:
   title: "O Windows iniciou após um desligamento com Inicialização Rápida"
 fa3e721e-98f2-4007-bbd8-133208564682:
   title: "O Windows iniciou após desligamento completo ou reinício"
+
+e3f5c638-81e3-410a-9f1d-fe762b9f8731:
+  title: "O SRUM registrou uso de CPU por um programa com nome de executor ou injetor do Roblox"
+  description: >-
+    O banco do Monitor de Uso de Recursos do Sistema (SRUDB.dat, lido de uma shadow copy já existente)
+    tem linhas dizendo que um programa cujo nome de arquivo corresponde a um executor ou injetor do
+    Roblox usou tempo de CPU, com a primeira e a última hora registradas. O SRUM grava mais ou menos
+    uma vez por hora, então os horários são horas, não inícios. Um nome não prova o que o programa
+    era, e o banco não tem o que o SRUM ainda não tinha gravado quando a shadow copy foi criada.
+  retention: >-
+    O SRUM guarda cerca de 30 a 60 dias de linhas por hora; a shadow copy tem a idade do snapshot, e
+    nada posterior a ele está na cópia.
+  falsepositives:
+    - "Um programa sem relação que tem o mesmo nome de arquivo, como um jogo ou utilitário chamado Solara ou Wave"
+    - "Um arquivo renomeado com o nome de uma ferramenta por alguém testando este scanner"
+
+d600c6da-1da8-44b5-9e47-24c56cf01558:
+  title: "Horas em que o SRUM registrou programas com nome de ferramentas Roblox"
+  description: >-
+    Coloca na linha do tempo a primeira e a última hora em que o Monitor de Uso de Recursos do Sistema
+    registrou um programa cujo nome corresponde ao catálogo de ferramentas Roblox.
+  retention: >-
+    O SRUM guarda cerca de 30 a 60 dias de linhas por hora.
+  falsepositives:
+    - "O horário é a hora em que o SRUM gravou os números, não quando o programa começou; um nome não identifica um programa"
+
+d615135a-756a-4da8-ae18-ef2737a3e921:
+  title: "A Master File Table guarda um registro liberado com nome de executor ou injetor do Roblox"
+  description: >-
+    Um registro da Master File Table do volume do sistema que o NTFS marcou como fora de uso ainda
+    guarda o nome de um arquivo ou pasta que corresponde a um executor ou injetor do Roblox, com o
+    caminho da pasta e os horários do NTFS. São os metadados de uma entrada excluída; o conteúdo não é
+    recuperado nem lido, o registro pode ser reutilizado a qualquer momento, e um nome não prova o que
+    era o arquivo nem que ele foi executado.
+  retention: >-
+    Um registro liberado dura até o NTFS reutilizá-lo para um arquivo novo: horas num volume
+    movimentado, meses num volume parado.
+  falsepositives:
+    - "Um download apagado sem ter sido aberto, ou um antivírus que pôs o arquivo em quarentena e o removeu"
+    - "Um arquivo sem relação com o mesmo nome, apagado por qualquer motivo"
+
+59259bcb-c00a-46fa-897d-40b4ef75ea99:
+  title: "Horários NTFS de registros da Master File Table com nome de ferramentas Roblox"
+  description: >-
+    Coloca na linha do tempo os horários de criação e de última gravação que o NTFS guarda em
+    registros da Master File Table cujos nomes correspondem ao catálogo de ferramentas Roblox, em uso
+    ou liberados.
+  retention: >-
+    Um registro liberado dura até o NTFS reutilizá-lo.
+  falsepositives:
+    - "Esses horários podem ser definidos por programas que copiam ou extraem arquivos; um nome não identifica um programa"
+
+1a7a3594-5b68-4142-8426-96aa0e0a2e90:
+  title: "O Explorer lembra de ter aberto uma pasta com nome de executor ou injetor do Roblox"
+  description: >-
+    As ShellBags da conta guardam o caminho de uma pasta com um trecho que corresponde a um executor
+    ou injetor do Roblox: o Explorer salvou a exibição dessa pasta em algum momento. A pasta pode ter
+    sido apagada, renomeada ou estar num disco que não está mais conectado. Abrir uma pasta não é
+    executar um programa.
+  retention: >-
+    As ShellBags duram até o perfil da conta ser apagado ou o histórico ser limpo; o Windows guarda
+    milhares de pastas.
+  falsepositives:
+    - "Uma pasta com nome comum que corresponde, como um álbum de fotos chamado Wave ou Solara"
+    - "Olhar o conteúdo de um arquivo compactado ou de uma pasta compartilhada por outra pessoa sem executar nada"
+
+600956be-c11f-43de-9070-02ceea97461c:
+  title: "A caixa Abrir/Salvar lembra de um arquivo com nome de executor ou injetor do Roblox"
+  description: >-
+    A lista da caixa de diálogo comum Abrir/Salvar (OpenSavePidlMRU) guarda um caminho cujo nome de
+    arquivo ou pasta corresponde a um executor ou injetor do Roblox: algum programa usou a caixa para
+    abri-lo ou salvá-lo. Não prova que o arquivo foi executado, nem qual programa usou a caixa.
+  retention: >-
+    A lista guarda cerca das 20 últimas entradas por extensão até o histórico ser limpo.
+  falsepositives:
+    - "Enviar ou anexar um arquivo com esse nome num navegador ou programa de chat"
+    - "Um arquivo sem relação com o mesmo nome"
+
+7a7cebaa-f0ae-4e82-9234-4b53f853eacb:
+  title: "Uma assinatura WMI permanente executa uma linha de comando ou um script"
+  description: >-
+    O WMI tem um CommandLineEventConsumer ou ActiveScriptEventConsumer que não é um dos que vêm com o
+    Windows: quando o filtro de evento dispara, o Windows inicia o programa ou executa o script
+    sozinho, sem usuário conectado. A linha mostra o programa, o arquivo de script ou os arquivos
+    citados pelo script, e o hash e a assinatura deles quando existem; o texto do script e os
+    argumentos do comando nunca são guardados. É uma forma de iniciar algo de modo persistente, não
+    prova do que é iniciado.
+  retention: >-
+    Uma assinatura dura até ser apagada; o repositório do WMI sobrevive a reinicializações.
+  falsepositives:
+    - "Software de fabricante e de gerenciamento (utilitários Dell, HP, Lenovo, agentes SCCM/Intune) que usam assinaturas WMI"
+    - "Scripts de manutenção criados pelo departamento de TI ou pelo dono do PC"
+
+2a0c35e1-7d5e-425e-a0f7-99424e7973ec:
+  title: "Uma assinatura WMI permanente cita um executor ou injetor do Roblox"
+  description: >-
+    O nome, o programa, o arquivo de script ou os arquivos citados pelo script de um consumidor de
+    eventos do WMI correspondem a um executor ou injetor do Roblox. O Windows iniciaria isso sozinho
+    sempre que o evento da assinatura acontecesse. Um nome não prova o que é o programa.
+  retention: >-
+    Uma assinatura dura até ser apagada.
+  falsepositives:
+    - "Um programa sem relação com o mesmo nome, iniciado pela assinatura WMI de um fabricante"
+
+40126502-5a4c-421d-9603-522ea7152433:
+  title: "Um arquivo compactado em Downloads, Área de Trabalho ou Temp esconde os nomes internos (cabeçalhos criptografados)"
+  description: >-
+    Um arquivo .rar ou .7z num local que esta verificação lista tem cabeçalhos criptografados, então
+    nem os nomes dentro dele podem ser lidos sem a senha. Nada lá dentro foi examinado; isto diz
+    apenas que o conteúdo não pôde ser verificado.
+  retention: >-
+    O arquivo compactado como está no momento da verificação.
+  falsepositives:
+    - "Qualquer arquivo compactado com senha: backups, documentos enviados pelo trabalho ou pela escola, mods de jogos"

@@ -17,6 +17,12 @@
 #
 # The shapes a careless rule would fire on are here on purpose: a program run from Downloads, a Lua file,
 # a .py file, an extension with access to every site, a peripheral suite that can store macros.
+#
+# B.O.P.E 0.10.0 (ADR 0124–0127): SRUM (from a shadow copy) holds the Roblox player, Bloxstrap and Explorer; the
+# Master File Table holds the Roblox and Bloxstrap folders and the freed record of Bloxstrap's deleted
+# installer; ShellBags remember Documents and the Bloxstrap folder, and the Open dialog the installer; WMI holds
+# only the subscription Windows ships. `SRUDB.dat` and `volume-c.img` are written by
+# `cargo run -p bope-parsers --example synthetic_fixtures`.
 platform: windows
 os_build: "26100"
 elevated: true
@@ -33,7 +39,18 @@ env:
   SystemDrive: 'C:'
   PUBLIC: 'C:\Users\Public'
 account_sid: 'S-1-5-21-1000-2000-3000-1001'
-access_denied: ['C:\Windows\AppCompat\Programs\Amcache.hve']
+access_denied: ['C:\Windows\AppCompat\Programs\Amcache.hve', 'C:\Windows\System32\sru\SRUDB.dat']
+volumes:
+  C: { from: volume-c.img }
+wmi:
+  namespaces:
+    'ROOT\subscription':
+      - class: __EventFilter
+        properties: { Name: 'SCM Event Log Filter', Query: 'select * from MSFT_SCMEventLogEvent', QueryLanguage: WQL }
+      - class: NTEventLogEventConsumer
+        properties: { Name: 'SCM Event Log Consumer' }
+      - class: __FilterToConsumerBinding
+        properties: { Filter: '__EventFilter.Name="SCM Event Log Filter"', Consumer: 'NTEventLogEventConsumer.Name="SCM Event Log Consumer"' }
 usn_journal:
   records:
     - name: BloxstrapInstaller.exe
@@ -60,6 +77,24 @@ devices:
   - { id: 'USB\VID_05E3&PID_0610\5&1&1', present: true, service: 'USBHUB3', first_install: '2026-01-10T12:00:00Z' }
   - { id: 'HID\VID_046D&PID_C539&MI_00\7&2&0&0000', present: true, service: 'mouhid', first_install: '2026-01-10T12:00:00Z' }
 registry:
+  "HKCU\\Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\BagMRU":
+    '0': { hex: '14001f50e04fd020ea3a6910a2d808002b30309d0000' }
+  "HKCU\\Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\BagMRU\\0":
+    '0': { hex: '19002f433a5c000000000000000000000000000000000000000000' }
+  "HKCU\\Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\BagMRU\\0\\0":
+    '0': { hex: '50003100000000004e5d609f10005573657273003c0009000400efbe4e5d609f4e5d609f00000000000000000000030000000000000000000000000000000000000055007300650072007300000014000000' }
+  "HKCU\\Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\BagMRU\\0\\0\\0":
+    '0': { hex: '62003100000000004e5d609f1000666978747572657573657200480009000400efbe4e5d609f4e5d609f0000000000000000000003000000000000000000000000000000000000006600690078007400750072006500750073006500720000001a000000' }
+  "HKCU\\Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\BagMRU\\0\\0\\0\\0":
+    '0': { hex: '5c003100000000004e5d609f1000446f63756d656e747300440009000400efbe4e5d609f4e5d609f00000000000000000000030000000000000000000000000000000000000044006f00630075006d0065006e0074007300000018000000' }
+    '1': { hex: '56003100000000004e5d609f10004170704461746100400009000400efbe4e5d609f4e5d609f0000000000000000000003000000000000000000000000000000000000004100700070004400610074006100000016000000' }
+  "HKCU\\Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\BagMRU\\0\\0\\0\\0\\1":
+    '0': { hex: '50003100000000004e5d609f10004c6f63616c003c0009000400efbe4e5d609f4e5d609f0000000000000000000003000000000000000000000000000000000000004c006f00630061006c00000014000000' }
+  "HKCU\\Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\BagMRU\\0\\0\\0\\0\\1\\0":
+    '0': { hex: '5c003100000000004e5d609f1000426c6f78737472617000440009000400efbe4e5d609f4e5d609f00000000000000000000030000000000000000000000000000000000000042006c006f00780073007400720061007000000018000000' }
+  "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ComDlg32\\OpenSavePidlMRU\\exe":
+    MRUListEx: { hex: '00000000ffffffff' }
+    '0': { hex: '14001f50e04fd020ea3a6910a2d808002b30309d19002f433a5c0000000000000000000000000000000000000050003100000000004e5d609f10005573657273003c0009000400efbe4e5d609f4e5d609f000000000000000000000300000000000000000000000000000000000000550073006500720073000000140062003100000000004e5d609f1000666978747572657573657200480009000400efbe4e5d609f4e5d609f0000000000000000000003000000000000000000000000000000000000006600690078007400750072006500750073006500720000001a005c003100000000004e5d609f1000446f776e6c6f61647300440009000400efbe4e5d609f4e5d609f00000000000000000000030000000000000000000000000000000000000044006f0077006e006c006f00610064007300000018007a003100000000004e5d609f1000426c6f787374726170496e7300005e0009000400efbe4e5d609f4e5d609f00000000000000000000030000000000000000000000000000000000000042006c006f0078007300740072006100700049006e007300740061006c006c00650072002e0065007800650000001c000000' }
   # UserAssist: Discord and Roblox started from the Start menu; Roblox's launcher from Program Files.
   'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist\{CEBFF5CD-ACE2-4F4F-9178-9926F41749EA}\Count':
     # C:\Program Files (x86)\Roblox\Versions\RobloxPlayerLauncher.exe
@@ -124,6 +159,10 @@ registry:
     MRUList: 'a'
     a: 'cmd\1'
 filesystem:
+  'C:\Windows\System32\sru':
+    - { name: SRUDB.dat }
+  '\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy4\Windows\System32\sru':
+    - { name: SRUDB.dat, from: SRUDB.dat }
   # B.O.P.E, ADR 0118–0123: Bloxstrap's own program and the FastFlags it keeps (graphics and frame rate
   # only); the Bloxstrap installer was deleted after installing, as most people do, and Recent, Amcache
   # and the change journal still name it; Discord's shortcut on the Desktop points into AppData.

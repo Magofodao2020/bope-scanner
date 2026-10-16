@@ -86,6 +86,20 @@ impl LocationKind {
     }
 }
 
+/// Classifies a path that may be written as a volume device path (`\Device\HarddiskVolume3\Users\...`),
+/// as SRUM and the change journal's readers write it (B.O.P.E, ADR 0124). The volume is read as a drive
+/// only to find the folder kind; which drive it is stays unknown.
+pub fn classify_any(path: &str) -> LocationKind {
+    let lower = path.to_ascii_lowercase();
+    if let Some(rest) = lower.strip_prefix(r"\device\harddiskvolume") {
+        let rest = rest.trim_start_matches(|c: char| c.is_ascii_digit());
+        if rest.starts_with('\\') {
+            return classify(&format!("C:{rest}"));
+        }
+    }
+    classify(path)
+}
+
 /// Strips the NT prefixes Windows artifacts write before a drive path: `\??\`, `\\?\`, `\\.\`.
 pub fn strip_nt_prefix(path: &str) -> &str {
     for prefix in [r"\??\", r"\\?\", r"\\.\"] {

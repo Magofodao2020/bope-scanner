@@ -59,8 +59,10 @@ pub struct ShellMru;
 /// The UTF-16LE string at the start of a binary MRU value, up to its terminating NUL.
 pub fn leading_utf16(bytes: &[u8]) -> Option<String> {
     let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|p| u16::from_le_bytes([p[0], p[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|p| u16::from_le_bytes(*p))
         .take_while(|u| *u != 0)
         .collect();
     (!units.is_empty()).then(|| String::from_utf16_lossy(&units))
@@ -70,8 +72,10 @@ pub fn leading_utf16(bytes: &[u8]) -> Option<String> {
 /// `0xFFFFFFFF`), or `None` when there is none.
 pub fn mru_list_ex(bytes: &[u8]) -> Vec<u32> {
     bytes
-        .chunks_exact(4)
-        .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|c| u32::from_le_bytes(*c))
         .take_while(|n| *n != u32::MAX)
         .collect()
 }

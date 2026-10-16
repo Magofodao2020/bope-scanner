@@ -41,3 +41,8 @@ pub mod system_integrity;
 pub mod tpm;
 
 pub mod usn_journal;
+
+#[cfg(windows)]
+pub mod random_read;
+
+pub mod wmi;

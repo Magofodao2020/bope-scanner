@@ -168,8 +168,10 @@ pub fn named_records(bytes: &[u8], keep: &mut dyn FnMut(&str) -> bool) -> Vec<Na
                 let off = usize::from(u16::from_le_bytes([*r.get(off_at)?, *r.get(off_at + 1)?]));
                 let raw = r.get(off..off.checked_add(len)?)?;
                 let units: Vec<u16> = raw
-                    .chunks_exact(2)
-                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|c| u16::from_le_bytes(*c))
                     .collect();
                 Some(String::from_utf16_lossy(&units))
             });

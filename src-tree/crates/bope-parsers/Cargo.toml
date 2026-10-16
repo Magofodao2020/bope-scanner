@@ -31,6 +31,9 @@ prefetch-core = { workspace = true }
 # quick-xml: the XML reader for scheduled task files (ADR 0060). Pure, no I/O: `Reader::from_str` over text
 # this crate has already decoded. Its types stop at `task.rs`.
 quick-xml.workspace = true
+# lzma-rs: the LZMA/LZMA2 decoder for a `.7z` archive's end header, and nothing else (ADR 0128). Its types
+# stop at `archive_names.rs`.
+lzma-rs.workspace = true
 # serde_json: `evtx` renders a record as JSON, and this crate reads four `System` fields out of that
 # document and keeps nothing else. It is already in the workspace lockfile via the CLI and the desktop app.
 serde_json.workspace = true
